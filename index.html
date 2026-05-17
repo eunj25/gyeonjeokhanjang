@@ -1671,36 +1671,23 @@ document.addEventListener('keydown',e=>{
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp }
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ══════════════════════════════════════════
 // 🔧 여기에 Firebase 프로젝트 설정을 넣으세요
 // ══════════════════════════════════════════
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "firebase/app";
-  import { getAnalytics } from "firebase/analytics";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyDN3An4trTUpxodt7ILpUGTRpdnuegKTF4",
-    authDomain: "gyeonjeokhanjang.firebaseapp.com",
-    projectId: "gyeonjeokhanjang",
-    storageBucket: "gyeonjeokhanjang.firebasestorage.app",
-    messagingSenderId: "640421546393",
-    appId: "1:640421546393:web:ecb45dc941a077d44ceb08",
-    measurementId: "G-NMB8J5KEYR"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
+const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
 // ══════════════════════════════════════════
 
-// const app  = initializeApp(firebaseConfig);
+const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
 const provider = new GoogleAuthProvider();
@@ -1708,9 +1695,11 @@ const provider = new GoogleAuthProvider();
 // ── 화면 전환 헬퍼 ──
 function show(id) {
   ['screenLogin','screenCode','screenLoading'].forEach(s => {
-    document.getElementById(s).style.display = s === id ? 'flex' : 'none';
+    const el = document.getElementById(s);
+    el.style.display = 'none';
   });
-  if(id === 'screenCode') document.getElementById('screenCode').style.display = 'block';
+  const target = document.getElementById(id);
+  target.style.display = id === 'screenLoading' ? 'flex' : 'block';
 }
 
 function hideOverlay() {
@@ -1719,7 +1708,7 @@ function hideOverlay() {
 
 // ── 이미 승인된 유저인지 확인 ──
 async function checkApproved(uid) {
-  const ref = doc(db, 'approvedUsers', uid);
+  const ref  = doc(db, 'approvedUsers', uid);
   const snap = await getDoc(ref);
   return snap.exists() && snap.data().approved === true;
 }
@@ -1730,40 +1719,38 @@ onAuthStateChanged(auth, async user => {
 
   show('screenLoading');
 
-  // 이미 승인된 유저 → 바로 앱 진입
   const approved = await checkApproved(user.uid);
   if (approved) { hideOverlay(); return; }
 
-  // 미승인 → 코드 입력 화면
   document.getElementById('userNameDisp').textContent  = user.displayName || '';
   document.getElementById('userEmailDisp').textContent = user.email || '';
-  const avatarImg = document.getElementById('userAvatarImg');
-  if (user.photoURL) { avatarImg.src = user.photoURL; }
+  if (user.photoURL) document.getElementById('userAvatarImg').src = user.photoURL;
   show('screenCode');
 });
 
-// ── 구글 로그인 ──
+// ── window에 함수 등록 (onclick에서 접근 가능하도록) ──
 window.signInWithGoogle = async () => {
-  document.getElementById('loginError').style.display = 'none';
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
   try {
     await signInWithPopup(auth, provider);
   } catch(e) {
-    const el = document.getElementById('loginError');
-    el.textContent = '로그인 중 오류가 발생했습니다.';
-    el.style.display = 'block';
+    console.error(e);
+    errEl.textContent = e.code === 'auth/popup-blocked'
+      ? '팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.'
+      : '로그인 중 오류가 발생했습니다. (' + e.code + ')';
+    errEl.style.display = 'block';
   }
 };
 
-// ── 로그아웃 ──
 window.signOut = async () => {
   await fbSignOut(auth);
   show('screenLogin');
 };
 
-// ── 인증코드 검증 ──
 window.verifyCode = async () => {
   const inputCode = document.getElementById('codeInput').value.trim().toUpperCase();
-  const errEl = document.getElementById('codeError');
+  const errEl     = document.getElementById('codeError');
   errEl.style.display = 'none';
 
   if (!inputCode) {
@@ -1776,10 +1763,9 @@ window.verifyCode = async () => {
   if (!user) return;
 
   try {
-    // codes 컬렉션에서 해당 코드 조회
     const codesRef = collection(db, 'inviteCodes');
-    const q = query(codesRef, where('code', '==', inputCode), where('used', '==', false));
-    const snap = await getDocs(q);
+    const q        = query(codesRef, where('code', '==', inputCode), where('used', '==', false));
+    const snap     = await getDocs(q);
 
     if (snap.empty) {
       errEl.textContent = '유효하지 않거나 이미 사용된 코드입니다.';
@@ -1788,9 +1774,8 @@ window.verifyCode = async () => {
     }
 
     const codeDoc = snap.docs[0];
-    const data = codeDoc.data();
+    const data    = codeDoc.data();
 
-    // 만료 확인
     if (data.expiresAt && data.expiresAt.toDate() < new Date()) {
       errEl.textContent = '만료된 코드입니다.';
       errEl.style.display = 'block';
@@ -1799,13 +1784,10 @@ window.verifyCode = async () => {
 
     // 코드 사용 처리
     await updateDoc(doc(db, 'inviteCodes', codeDoc.id), {
-      used: true,
-      usedBy: user.uid,
-      usedAt: Timestamp.now()
+      used: true, usedBy: user.uid, usedAt: Timestamp.now()
     });
 
-    // 유저 승인 등록
-    const { setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    // 유저 승인 등록 (동적 import 제거 — 상단에서 이미 import)
     await setDoc(doc(db, 'approvedUsers', user.uid), {
       approved: true,
       email: user.email,
@@ -1818,7 +1800,7 @@ window.verifyCode = async () => {
 
   } catch(e) {
     console.error(e);
-    errEl.textContent = '오류가 발생했습니다. 다시 시도해 주세요.';
+    errEl.textContent = '오류가 발생했습니다. (' + e.code + ')';
     errEl.style.display = 'block';
   }
 };
