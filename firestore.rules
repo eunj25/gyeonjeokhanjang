@@ -1,0 +1,29 @@
+// firestore.rules
+// Firebase 콘솔 → Firestore → 규칙 탭에 붙여넣기
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 승인된 유저 목록
+    // - 본인 문서만 읽기 가능
+    // - 쓰기는 Cloud Function or Admin SDK만 (클라이언트에서 setDoc 허용은 코드 검증 후에만)
+    match /approvedUsers/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // 초대 코드
+    // - 로그인한 유저만 읽기/사용 처리 가능
+    // - 생성은 Admin SDK(서버)만
+    match /inviteCodes/{codeId} {
+      allow read: if request.auth != null;
+      allow update: if request.auth != null
+        && resource.data.used == false
+        && request.resource.data.used == true
+        && request.resource.data.usedBy == request.auth.uid;
+      allow create: if false; // Admin SDK만 생성 가능
+      allow delete: if false;
+    }
+  }
+}
