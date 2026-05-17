@@ -1599,7 +1599,44 @@ document.addEventListener('keydown',e=>{
   background:var(--panel-bg,#111);
   display:flex;align-items:center;justify-content:center;
   font-family:'SUIT','Pretendard',sans-serif;
+  flex-direction:column;
 ">
+
+  <!-- 인앱 브라우저 안내 배너 (기본 숨김, JS로 감지 시 표시) -->
+  <div id="inappBanner" style="
+    display:none;
+    position:fixed;bottom:0;left:0;right:0;
+    background:#1a1a1a;border-top:1px solid #2e2e2e;
+    padding:16px 20px;
+    font-family:'SUIT','Pretendard',sans-serif;
+    z-index:10000;
+  ">
+    <div style="display:flex;align-items:flex-start;gap:12px;max-width:420px;margin:0 auto;">
+      <div style="font-size:20px;flex-shrink:0;margin-top:1px;">⚠️</div>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:#e8e8e6;margin-bottom:4px;" id="inappTitle">
+          외부 브라우저에서 열어주세요
+        </div>
+        <div style="font-size:11px;color:#666;line-height:1.6;" id="inappDesc">
+          현재 앱 내 브라우저에서는 Google 로그인이 원활하지 않을 수 있습니다.
+        </div>
+        <button id="inappOpenBtn" onclick="openInExternalBrowser()" style="
+          display:inline-flex;align-items:center;gap:6px;
+          margin-top:10px;padding:8px 16px;
+          background:#e8e8e6;color:#111;border:none;cursor:pointer;
+          font-family:'SUIT','Pretendard',sans-serif;
+          font-size:11px;font-weight:700;letter-spacing:0.08em;
+          transition:background 0.15s;
+        ">
+          🌐 외부 브라우저로 열기
+        </button>
+        <div style="margin-top:8px;font-size:10px;color:#444;" id="inappManual"></div>
+      </div>
+      <button onclick="document.getElementById('inappBanner').style.display='none'" style="
+        background:none;border:none;cursor:pointer;color:#444;font-size:18px;padding:0;flex-shrink:0;
+      ">×</button>
+    </div>
+  </div>
   <!-- 로그인 화면 -->
   <div id="screenLogin" style="text-align:center;padding:32px 24px;max-width:360px;width:100%;">
     <div style="font-size:22px;font-weight:900;color:#e8e8e6;letter-spacing:-0.01em;margin-bottom:6px;">견적한장</div>
@@ -1669,7 +1706,7 @@ document.addEventListener('keydown',e=>{
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut as fbSignOut }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -1709,9 +1746,100 @@ async function checkApproved(uid) {
   return snap.exists() && snap.data().approved === true;
 }
 
-// ── 인증 상태 감지 ──
+// ── 인앱 브라우저 감지 & 배너 표시 ──
+function detectInAppBrowser() {
+  const ua  = navigator.userAgent;
+  const ual = ua.toLowerCase();
+
+  const isKakao     = /kakaotalk/i.test(ua);
+  const isInstagram = /instagram/i.test(ua);
+  const isNaver     = /naver/i.test(ua);
+  const isLine      = /line\//i.test(ua);
+  const isFacebook  = /fbav|fban|fb_iab/i.test(ua);
+  const isTwitter   = /twitter/i.test(ua);
+  const isTelegram  = /telegram/i.test(ua);
+  const isAndroidWV = ual.includes('wv') && ual.includes('android');
+  const isIOS       = /iphone|ipad|ipod/i.test(ua);
+  const isAndroid   = /android/i.test(ua);
+
+  const inApp = isKakao || isInstagram || isNaver || isLine
+             || isFacebook || isTwitter || isTelegram || isAndroidWV;
+
+  if (!inApp) return false;
+
+  // 배너 내용 세팅
+  let appName = '현재 앱';
+  if (isKakao)     appName = '카카오톡';
+  if (isInstagram) appName = '인스타그램';
+  if (isNaver)     appName = '네이버';
+  if (isLine)      appName = 'LINE';
+  if (isFacebook)  appName = '페이스북';
+  if (isTwitter)   appName = '트위터(X)';
+  if (isTelegram)  appName = '텔레그램';
+
+  document.getElementById('inappTitle').textContent =
+    `${appName} 내 브라우저에서는 로그인이 제한됩니다`;
+
+  if (isIOS) {
+    document.getElementById('inappDesc').textContent =
+      'Google 로그인을 사용하려면 Safari에서 열어야 합니다.';
+    document.getElementById('inappManual').innerHTML =
+      '버튼이 안 된다면:<br>주소창 오른쪽 <b style="color:#888">···</b> → <b style="color:#888">Safari로 열기</b>';
+  } else if (isAndroid) {
+    document.getElementById('inappDesc').textContent =
+      'Google 로그인을 사용하려면 Chrome에서 열어야 합니다.';
+    document.getElementById('inappManual').innerHTML =
+      '버튼이 안 된다면:<br>주소창 오른쪽 <b style="color:#888">⋮</b> → <b style="color:#888">Chrome으로 열기</b> 또는 <b style="color:#888">기본 브라우저로 열기</b>';
+  } else {
+    document.getElementById('inappDesc').textContent =
+      '외부 브라우저(Chrome, Safari)에서 열면 정상 이용 가능합니다.';
+  }
+
+  document.getElementById('inappBanner').style.display = 'block';
+  return true;
+}
+
+function isInAppBrowser() {
+  const ua  = navigator.userAgent;
+  const ual = ua.toLowerCase();
+  return /kakaotalk|instagram|naver|line\//i.test(ua)
+      || /fbav|fban|fb_iab|twitter|telegram/i.test(ua)
+      || (ual.includes('wv') && ual.includes('android'));
+}
+
+// 현재 URL을 외부 브라우저로 열기
+window.openInExternalBrowser = function() {
+  const url = location.href;
+  const ua  = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+
+  if (isIOS) {
+    // iOS: x-safari 스킴으로 시도
+    location.href = 'x-safari-' + url;
+    // 폴백: intent URL (일부 앱에서 동작)
+    setTimeout(() => { location.href = url; }, 300);
+  } else {
+    // Android: intent 스킴으로 Chrome 강제 실행
+    const intent = 'intent://' + url.replace(/^https?:\/\//, '')
+      + '#Intent;scheme=https;package=com.android.chrome;end';
+    location.href = intent;
+    // 폴백
+    setTimeout(() => { location.href = url; }, 500);
+  }
+};
+
+// ── 인증 상태 감지 (redirect 결과도 여기서 처리) ──
 onAuthStateChanged(auth, async user => {
-  if (!user) { show('screenLogin'); return; }
+  if (!user) {
+    // redirect 로그인 후 돌아왔는지 확인
+    try {
+      const result = await getRedirectResult(auth);
+      if (result?.user) return; // onAuthStateChanged가 다시 실행됨
+    } catch(e) { console.error(e); }
+    show('screenLogin');
+    detectInAppBrowser(); // 인앱 브라우저면 배너 표시
+    return;
+  }
 
   show('screenLoading');
 
@@ -1724,18 +1852,26 @@ onAuthStateChanged(auth, async user => {
   show('screenCode');
 });
 
-// ── window에 함수 등록 (onclick에서 접근 가능하도록) ──
 window.signInWithGoogle = async () => {
   const errEl = document.getElementById('loginError');
   errEl.style.display = 'none';
   try {
-    await signInWithPopup(auth, provider);
+    if (isInAppBrowser()) {
+      // 카카오톡 등 인앱 브라우저 → redirect 방식
+      await signInWithRedirect(auth, provider);
+    } else {
+      // 일반 브라우저 → popup 방식
+      await signInWithPopup(auth, provider);
+    }
   } catch(e) {
     console.error(e);
-    errEl.textContent = e.code === 'auth/popup-blocked'
-      ? '팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.'
-      : '로그인 중 오류가 발생했습니다. (' + e.code + ')';
-    errEl.style.display = 'block';
+    if (e.code === 'auth/popup-blocked') {
+      // 팝업 차단 시 자동으로 redirect로 폴백
+      await signInWithRedirect(auth, provider);
+    } else {
+      errEl.textContent = '로그인 중 오류가 발생했습니다. (' + e.code + ')';
+      errEl.style.display = 'block';
+    }
   }
 };
 
