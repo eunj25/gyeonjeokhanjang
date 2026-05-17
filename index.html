@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>견적한장 — 디자인 견적 자동화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=SUIT:wght@300;400;500;600;700;900&family=Pretendard:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --panel-bg: #111111;
+  --panel-border: #252525;
+  --panel-border-mid: #1e1e1e;
+  --input-bg: #1c1c1c;
+  --input-border: #2e2e2e;
+  --input-focus: #505050;
+  --text-primary: #e8e8e6;
+  --text-secondary: #909090;
+  --text-muted: #4a4a4a;
+  --text-label: #5e5e5e;
+  --resizer-w: 5px;
+  --suit: 'SUIT', 'Pretendard', sans-serif;
+  --pre: 'Pretendard', sans-serif;
+  --header-bg: #080808;
+  --header-border: #1c1c1c;
+  --header-logo: #e0e0de;
+  --header-sub: #3a3a3a;
+  --panel-right-bg: #d8d8d6;
+  --scrollbar-left: #2a2a2a;
+  --scrollbar-right: #c0c0c0;
+  --resizer-bg: #252525;
+  --resizer-hover: #404040;
+}
+
+/* ── LIGHT MODE ── */
+body.light-mode {
+  --panel-bg: #f7f7f5;
+  --panel-border: #e0e0de;
+  --panel-border-mid: #ebebea;
+  --input-bg: #ffffff;
+  --input-border: #d4d4d2;
+  --input-focus: #888;
+  --text-primary: #111111;
+  --text-secondary: #555555;
+  --text-muted: #aaaaaa;
+  --text-label: #888888;
+  --header-bg: #ffffff;
+  --header-border: #e0e0de;
+  --header-logo: #111111;
+  --header-sub: #bbbbbb;
+  --panel-right-bg: #ebebea;
+  --scrollbar-left: #d0d0ce;
+  --scrollbar-right: #aaaaaa;
+  --resizer-bg: #e0e0de;
+  --resizer-hover: #c0c0be;
+}
+
+html, body { height: 100%; font-size: 14px; }
+body { font-family: var(--pre); background: #f5f5f3; color: var(--text-primary); min-height: 100vh; line-height: 1.5; overflow: hidden; }
+
+/* SCROLLBARS */
+.panel-left::-webkit-scrollbar, .panel-right::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+.panel-left::-webkit-scrollbar-thumb  { background: var(--scrollbar-left); }
+.panel-left::-webkit-scrollbar-thumb:hover  { background: #444; }
+.panel-right::-webkit-scrollbar-thumb { background: var(--scrollbar-right); }
+.panel-right::-webkit-scrollbar-thumb:hover { background: #999; }
+.panel-left  { scrollbar-width: thin; scrollbar-color: var(--scrollbar-left) transparent; }
+.panel-right { scrollbar-width: thin; scrollbar-color: var(--scrollbar-right) transparent; }
+
+/* HEADER */
+header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 52px;
+  background: var(--header-bg); border-bottom: 1px solid var(--header-border);
+  transition: background 0.2s, border-color 0.2s;
+}
+.logo { font-family: var(--suit); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; color: var(--header-logo); transition: color 0.2s; }
+.header-left { display: flex; align-items: center; gap: 14px; }
+.header-sub { font-size: 10px; color: var(--header-sub); letter-spacing: 0.06em; transition: color 0.2s; }
+.header-sub::before { content: '/'; margin-right: 14px; opacity: 0.3; }
+
+/* MODE TOGGLE */
+.mode-toggle {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.mode-toggle-label {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--header-sub); transition: color 0.2s; user-select: none;
+}
+.mode-toggle-track {
+  width: 36px; height: 20px; background: #2a2a2a;
+  position: relative; cursor: pointer; transition: background 0.2s;
+  flex-shrink: 0;
+}
+.mode-toggle-track::after {
+  content: ''; position: absolute;
+  top: 3px; left: 3px; width: 14px; height: 14px;
+  background: #555; transition: transform 0.2s, background 0.2s;
+}
+body.light-mode .mode-toggle-track { background: #ddd; }
+body.light-mode .mode-toggle-track::after { transform: translateX(16px); background: #111; }
+.mode-icon { font-size: 12px; transition: opacity 0.2s; }
+
+/* LAYOUT */
+.app { display: flex; height: calc(100vh - 52px); margin-top: 52px; overflow: hidden; }
+
+/* LEFT PANEL */
+.panel-left { width: 400px; min-width: 280px; max-width: 640px; flex-shrink: 0; overflow-y: auto; height: 100%; background: var(--panel-bg); border-right: 1px solid var(--panel-border); }
+
+/* RESIZER */
+.resizer { width: var(--resizer-w); flex-shrink: 0; cursor: col-resize; background: var(--resizer-bg); position: relative; transition: background 0.15s; z-index: 10; user-select: none; }
+.resizer:hover, .resizer.dragging { background: var(--resizer-hover); }
+.resizer::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 1px; height: 32px; background: #444; }
+.resizer:hover::after, .resizer.dragging::after { background: #707070; }
+
+/* RIGHT PANEL */
+.panel-right { flex: 1; overflow-y: auto; height: 100%; background: var(--panel-right-bg); display: flex; flex-direction: column; align-items: center; padding: 44px 40px; min-width: 0; transition: background 0.2s; }
+
+/* SECTION TITLE */
+.section-title { display: flex; align-items: center; gap: 8px; padding: 16px 24px 12px; font-size: 9px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-label); border-bottom: 1px solid var(--panel-border); }
+.section-title .num { font-size: 9px; font-weight: 400; color: var(--text-muted); }
+
+/* FIELD BLOCKS */
+.client-block { padding: 16px 24px; border-bottom: 1px solid var(--panel-border); }
+.field-row { display: flex; gap: 10px; margin-bottom: 9px; }
+.field-row:last-child { margin-bottom: 0; }
+.field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.field label { font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-label); }
+.field input, .field select, .field textarea { font-family: var(--pre); font-size: 12px; font-weight: 400; padding: 8px 11px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); outline: none; transition: border-color 0.15s; border-radius: 0; width: 100%; }
+.field input::placeholder, .field textarea::placeholder { color: var(--text-muted); }
+.field select option { background: #1c1c1c; color: var(--text-primary); }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--input-focus); }
+.field textarea { resize: vertical; min-height: 60px; line-height: 1.6; }
+
+/* SAVE ROW */
+.save-row { display: flex; align-items: center; gap: 8px; padding: 10px 0 0; }
+.save-check-box {
+  width: 15px; height: 15px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.12s, border-color 0.12s;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.save-check-box:checked { background: var(--text-primary); border-color: var(--text-primary); }
+.save-check-box:checked::after {
+  content: '';
+  position: absolute;
+  width: 4px; height: 7px;
+  border-right: 2px solid var(--panel-bg);
+  border-bottom: 2px solid var(--panel-bg);
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.save-label { font-size: 10px; color: var(--text-secondary); cursor: pointer; user-select: none; }
+.save-status { margin-left: auto; font-size: 9px; letter-spacing: 0.08em; color: var(--text-muted); transition: color 0.2s; }
+.save-status.saved { color: #6a6a6a; }
+
+/* LOGO UPLOAD */
+.logo-upload-block { padding: 14px 24px 16px; border-bottom: 1px solid var(--panel-border); }
+.logo-upload-label-row {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+}
+.logo-upload-title { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-label); }
+.logo-clear-btn {
+  font-size: 9px; color: var(--text-muted); cursor: pointer; background: none; border: none;
+  font-family: var(--pre); letter-spacing: 0.06em; transition: color 0.15s; padding: 0;
+}
+.logo-clear-btn:hover { color: var(--text-secondary); }
+.logo-drop-area {
+  border: 1px dashed var(--input-border);
+  background: var(--input-bg);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 4px;
+  height: 64px; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative; overflow: hidden;
+}
+.logo-drop-area:hover { border-color: var(--input-focus); background: #222; }
+.logo-drop-area.has-logo { border-style: solid; border-color: var(--input-focus); }
+.logo-drop-text { font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; pointer-events: none; }
+.logo-drop-sub  { font-size: 9px; color: var(--text-muted); opacity: 0.6; pointer-events: none; }
+.logo-preview-img { max-height: 52px; max-width: 100%; object-fit: contain; pointer-events: none; }
+#logoFileInput { display: none; }
+
+/* RATE TABLE */
+.rate-block { padding: 14px 24px 16px; border-bottom: 1px solid var(--panel-border); }
+.rate-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.rate-toolbar-hint { font-size: 9px; color: var(--text-muted); letter-spacing: 0.06em; }
+.btn-add-rate { padding: 4px 10px; background: none; border: 1px solid var(--panel-border); color: var(--text-secondary); cursor: pointer; font-family: var(--pre); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; transition: all 0.15s; }
+.btn-add-rate:hover { border-color: var(--input-focus); color: var(--text-primary); }
+.rate-table { width: 100%; border-collapse: collapse; }
+.rate-table thead tr { border-bottom: 1px solid var(--panel-border); }
+.rate-table th { text-align: left; font-size: 8px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); padding: 5px 6px 7px; }
+.rate-table th:nth-child(2) { text-align: center; }
+.rate-table th:nth-child(3) { text-align: right; }
+.rate-row td { border-bottom: 1px solid var(--panel-border-mid); }
+.rate-row:last-child td { border-bottom: none; }
+.rate-input { font-family: var(--pre); font-size: 12px; padding: 6px; background: transparent; border: none; color: var(--text-primary); outline: none; width: 100%; transition: background 0.12s; }
+.rate-input:focus { background: var(--input-bg); }
+.rate-input.unit-input { text-align: center; width: 52px; color: var(--text-secondary); }
+.rate-input.price-input { text-align: right; color: var(--text-secondary); width: 92px; min-width: 92px; }
+.rate-input::-webkit-outer-spin-button, .rate-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.btn-del-rate { width: 22px; height: 22px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: color 0.15s; margin: 0 auto; }
+.btn-del-rate:hover { color: #e0e0de; }
+
+/* ITEM BLOCK */
+.item-block { padding: 16px 24px; border-bottom: 1px solid var(--panel-border); }
+.add-row { display: grid; grid-template-columns: 1fr 56px 60px 28px; gap: 6px; align-items: end; margin-bottom: 8px; }
+.btn-add-item { width: 28px; height: 32px; background: var(--text-primary); color: var(--panel-bg); border: none; cursor: pointer; font-size: 18px; font-weight: 300; line-height: 1; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.btn-add-item:hover { background: #bbb; }
+
+/* GRADE SELECTOR */
+.grade-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 8px; }
+.grade-btn { padding: 6px 4px; text-align: center; cursor: pointer; border: 1px solid var(--panel-border); background: none; font-family: var(--pre); font-size: 10px; font-weight: 500; color: var(--text-secondary); transition: all 0.15s; }
+.grade-btn:hover { border-color: var(--input-focus); color: var(--text-primary); }
+.grade-btn.active { background: var(--text-primary); color: var(--panel-bg); border-color: var(--text-primary); }
+.grade-sub { font-size: 9px; color: inherit; display: block; margin-top: 2px; opacity: 0.6; }
+
+.items-list { margin-top: 10px; display: flex; flex-direction: column; gap: 3px; }
+.item-card { display: grid; grid-template-columns: 1fr 48px 56px 68px 24px; gap: 4px; align-items: center; padding: 8px 10px; background: var(--input-bg); border-left: 2px solid #303030; font-size: 11px; }
+.item-name   { font-weight: 500; color: var(--text-primary); font-size: 12px; }
+.item-num    { color: var(--text-secondary); text-align: center; font-size: 11px; }
+.item-amount { font-weight: 600; text-align: right; font-size: 11px; color: var(--text-secondary); }
+.btn-del { width: 24px; height: 24px; background: none; border: 1px solid var(--panel-border); cursor: pointer; color: var(--text-muted); font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.btn-del:hover { background: var(--text-primary); color: var(--panel-bg); border-color: var(--text-primary); }
+
+/* OPTIONS */
+.options-block { padding: 12px 24px 18px; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--panel-border-mid); }
+.toggle-label { font-weight: 500; color: var(--text-primary); font-size: 12px; }
+.toggle-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.toggle { cursor: pointer; }
+.toggle input { display: none; }
+.toggle-track { width: 34px; height: 18px; background: #2a2a2a; position: relative; transition: background 0.2s; }
+.toggle-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; background: var(--text-muted); transition: transform 0.2s, background 0.2s; }
+.toggle input:checked + .toggle-track { background: var(--text-primary); }
+.toggle input:checked + .toggle-track::after { transform: translateX(16px); background: var(--panel-bg); }
+.inline-num { width: 48px; padding: 5px 7px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); font-family: var(--pre); font-size: 12px; text-align: center; outline: none; }
+.inline-num:focus { border-color: var(--input-focus); }
+.inline-num::-webkit-outer-spin-button, .inline-num::-webkit-inner-spin-button { -webkit-appearance: none; }
+.inline-unit { font-size: 11px; color: var(--text-secondary); }
+
+/* TAX SECTION */
+.tax-section { padding: 12px 0 8px; border-bottom: 1px solid var(--panel-border-mid); margin-bottom: 4px; }
+.tax-section-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-label); margin-bottom: 8px; }
+.tax-option { display: flex; align-items: center; gap: 10px; padding: 8px 10px; cursor: pointer; margin-bottom: 2px; transition: background 0.12s; }
+.tax-option input[type="radio"] { display: none; }
+.tax-option:hover { background: var(--input-bg); }
+.tax-option:has(input:checked) { background: var(--text-primary); }
+.tax-option:has(input:checked) .tax-opt-title { color: var(--panel-bg); }
+.tax-option:has(input:checked) .tax-opt-sub   { color: #777; }
+.tax-option:has(input:checked) .tax-check     { opacity: 1; color: var(--panel-bg); }
+.tax-option-inner { flex: 1; }
+.tax-opt-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.tax-opt-sub   { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.tax-check     { font-size: 10px; opacity: 0; transition: opacity 0.12s; }
+
+/* ── DOC THEME SWITCHER ── */
+.theme-section { padding: 14px 24px 16px; border-bottom: 1px solid var(--panel-border); }
+.theme-section-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-label); margin-bottom: 10px; }
+.theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.theme-card {
+  cursor: pointer; border: 2px solid var(--panel-border);
+  transition: border-color 0.15s, transform 0.12s;
+  position: relative; overflow: hidden;
+}
+.theme-card:hover { border-color: var(--input-focus); transform: translateY(-1px); }
+.theme-card.active { border-color: var(--text-primary); }
+.theme-card.active::after { content: '✓'; position: absolute; top: 4px; right: 5px; font-size: 9px; color: var(--text-primary); font-weight: 700; }
+.theme-preview {
+  width: 100%; height: 72px;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+}
+.theme-label { font-size: 9px; font-weight: 600; color: var(--text-secondary); padding: 5px 6px 4px; letter-spacing: 0.06em; text-align: center; border-top: 1px solid var(--panel-border); }
+
+/* GENERATE BTN */
+.btn-generate {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: calc(100% - 48px); margin: 10px 24px 28px; padding: 16px 20px;
+  background: var(--text-primary); color: var(--panel-bg); border: none; cursor: pointer;
+  font-family: var(--suit); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; transition: background 0.15s;
+}
+.btn-generate:hover { background: #d0d0ce; }
+.btn-generate .btn-icon { font-size: 16px; opacity: 0.7; }
+
+/* PREVIEW TOOLBAR */
+.preview-toolbar { width: 100%; max-width: 680px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.preview-label { font-size: 9px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: #888; }
+.btn-print {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 24px; background: #0a0a0a; color: #e8e8e6; border: none; cursor: pointer;
+  font-family: var(--suit); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; transition: background 0.15s;
+}
+.btn-print:hover { background: #222; }
+.btn-print .btn-icon { font-size: 15px; opacity: 0.7; }
+
+/* ═══════════════════════════════════
+   QUOTE DOC BASE
+═══════════════════════════════════ */
+.quote-doc {
+  width: 100%; max-width: 680px;
+  box-shadow: 0 2px 32px rgba(0,0,0,0.13);
+  font-family: var(--suit);
+  min-height: 960px;
+  display: flex; flex-direction: column;
+  transition: background 0.2s;
+}
+
+/* ─── THEME A: Estimate. / 크림 / 심플 ─── */
+.quote-doc.theme-a {
+  background: #f0efed;
+  padding: 56px 56px 64px;
+  color: #111;
+}
+.theme-a .doc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 60px; }
+.theme-a .doc-title-main { font-size: 34px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; color: #111; }
+.theme-a .doc-sender-info { text-align: right; }
+.theme-a .doc-sender-info .date-line { font-size: 12px; font-weight: 700; color: #111; margin-bottom: 2px; }
+.theme-a .doc-sender-info p { font-size: 11px; color: #666; line-height: 2; }
+.theme-a .doc-table { width: 100%; border-collapse: collapse; flex: 1; }
+.theme-a .doc-table thead tr { border-top: 1px solid #111; border-bottom: 1px solid #111; }
+.theme-a .doc-table th { padding: 10px 12px; font-size: 11px; font-weight: 600; color: #111; text-align: left; }
+.theme-a .doc-table th:not(:first-child) { text-align: right; }
+.theme-a .doc-table tbody tr { border-bottom: 1px solid #d8d7d5; }
+.theme-a .doc-table tbody tr:last-child { border-bottom: none; }
+.theme-a .doc-table td { padding: 11px 12px; font-size: 12px; color: #222; }
+.theme-a .doc-table td:not(:first-child) { text-align: right; }
+.theme-a .td-grade { font-size: 9px; color: #aaa; margin-top: 2px; letter-spacing: 0.05em; text-transform: uppercase; }
+.theme-a .td-note { font-size: 10px; color: #aaa; margin-top: 1px; }
+.theme-a .td-dash { color: #ccc; }
+.theme-a .doc-total-row { border-top: 1px solid #111; }
+.theme-a .doc-sub-totals { padding: 8px 12px 0; }
+.theme-a .doc-sub-row { display: flex; justify-content: space-between; font-size: 11px; color: #888; line-height: 1.9; }
+.theme-a .doc-total-inner { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 12px 12px; }
+.theme-a .doc-total-label { font-size: 11px; font-weight: 400; color: #888; letter-spacing: 0.04em; }
+.theme-a .doc-total-amount { font-size: 24px; font-weight: 900; color: #111; letter-spacing: -0.02em; }
+.theme-a .doc-bottom { margin-top: auto; padding-top: 40px; }
+.theme-a .doc-notices { padding-top: 20px; border-top: 1px solid #ccc; }
+.theme-a .doc-notice-item { display: flex; align-items: flex-start; gap: 8px; font-size: 10px; color: #888; line-height: 1.7; margin-bottom: 2px; }
+.theme-a .doc-notice-item::before { content: '·'; flex-shrink: 0; }
+
+/* ─── THEME B: INNOVUS 스타일 — 브랜드 + 빨간 액센트 + 그리드 레이아웃 ─── */
+.quote-doc.theme-b {
+  background: #f2f1ef;
+  padding: 44px 52px 52px;
+  color: #111;
+}
+/* 최상단 브랜드 + 타이틀 */
+.theme-b .doc-brand-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 36px;
+}
+.theme-b .doc-brand-name {
+  font-size: 24px; font-weight: 900; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #111; line-height: 1;
+}
+.theme-b .doc-type-badge {
+  font-size: 22px; font-weight: 900; letter-spacing: 0.04em;
+  text-transform: uppercase; color: #c0392b; line-height: 1;
+}
+/* 공급자 + 연락처 그리드 */
+.theme-b .doc-info-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0; border-top: 1px solid #aaa;
+  padding-top: 18px; margin-bottom: 28px;
+}
+.theme-b .doc-info-col { padding-right: 24px; }
+.theme-b .doc-info-label { font-size: 10px; font-weight: 700; color: #111; margin-bottom: 6px; }
+.theme-b .doc-info-value { font-size: 11px; color: #555; line-height: 1.9; }
+/* 메타 바 (날짜, 번호 등) */
+.theme-b .doc-meta-bar {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid #aaa; border-bottom: 1px solid #aaa;
+  padding: 12px 0; margin-bottom: 28px;
+}
+.theme-b .doc-meta-cell { padding: 0 12px 0 0; }
+.theme-b .doc-meta-cell:first-child { padding-left: 0; }
+.theme-b .doc-meta-key { font-size: 9px; font-weight: 700; color: #555; letter-spacing: 0.08em; margin-bottom: 4px; }
+.theme-b .doc-meta-val { font-size: 11px; font-weight: 600; color: #111; }
+/* 테이블 */
+.theme-b .doc-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+.theme-b .doc-table thead tr { border-bottom: 1px solid #999; }
+.theme-b .doc-table th { padding: 8px 10px; font-size: 10px; font-weight: 700; color: #111; text-align: left; letter-spacing: 0; }
+.theme-b .doc-table th:nth-child(2) { text-align: right; }
+.theme-b .doc-table th:nth-child(3) { text-align: right; }
+.theme-b .doc-table th:last-child   { text-align: right; }
+.theme-b .doc-table tbody tr { border-bottom: 1px solid #ddd; }
+.theme-b .doc-table tbody tr:last-child { border-bottom: 1px solid #999; }
+.theme-b .doc-table td { padding: 10px 10px; font-size: 11px; color: #222; }
+.theme-b .doc-table td:nth-child(2) { text-align: right; }
+.theme-b .doc-table td:nth-child(3) { text-align: right; }
+.theme-b .doc-table td:last-child   { text-align: right; }
+.theme-b .td-grade { font-size: 9px; color: #aaa; margin-top: 2px; }
+.theme-b .td-note  { font-size: 9px; color: #aaa; margin-top: 1px; }
+.theme-b .td-num   { font-size: 10px; color: #999; text-align: center !important; }
+/* 합계 섹션 */
+.theme-b .doc-sum-section {
+  display: flex; justify-content: flex-end; margin-top: 0;
+  border-bottom: 1px solid #aaa; padding-bottom: 16px; margin-bottom: 20px;
+}
+.theme-b .doc-sum-table { min-width: 220px; }
+.theme-b .doc-sub-row {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: #555; line-height: 2;
+  border-bottom: 1px solid #ddd; padding: 2px 0;
+}
+.theme-b .doc-sub-row:last-child { border-bottom: none; }
+.theme-b .doc-sub-row.total-final {
+  font-size: 13px; font-weight: 700; color: #111;
+  border-top: 1px solid #999; border-bottom: none;
+  padding-top: 6px; margin-top: 2px;
+}
+/* 하단 결제정보 */
+.theme-b .doc-payment-row {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 24px; align-items: end;
+}
+.theme-b .doc-payment-label { font-size: 10px; font-weight: 700; color: #111; margin-bottom: 6px; }
+.theme-b .doc-payment-info { font-size: 11px; color: #555; line-height: 1.9; }
+.theme-b .doc-payment-info span { font-weight: 700; color: #111; display: inline-block; min-width: 56px; }
+.theme-b .doc-sig-block { text-align: right; }
+.theme-b .doc-sig-label { font-size: 10px; font-weight: 700; color: #111; margin-bottom: 6px; }
+.theme-b .doc-sig-name  { font-size: 11px; color: #555; }
+.theme-b .doc-notices { padding-top: 14px; border-top: 1px solid #ccc; margin-top: 16px; }
+.theme-b .doc-notice-item { display: flex; align-items: flex-start; gap: 6px; font-size: 9px; color: #888; line-height: 1.7; margin-bottom: 1px; }
+.theme-b .doc-notice-item::before { content: '·'; flex-shrink: 0; }
+
+/* ─── THEME C: "hello." 스타일 — 초대형 타이포 + 굵은 섹션 라벨 + 감사 마감 ─── */
+.quote-doc.theme-c {
+  background: #f5f4f2;
+  padding: 52px 56px 0;
+  color: #111;
+  flex-direction: column;
+}
+/* 초대형 인트로 타이포 */
+.theme-c .doc-hero {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 44px;
+}
+.theme-c .doc-hero-left {}
+.theme-c .doc-hello {
+  font-size: 72px; font-weight: 900; line-height: 0.9;
+  letter-spacing: -0.03em; color: #111;
+  font-family: var(--suit);
+}
+.theme-c .doc-hello-sub {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: #999; margin-top: 8px;
+}
+.theme-c .doc-hero-right { text-align: right; padding-top: 6px; }
+.theme-c .doc-hero-right .brand { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 8px; }
+.theme-c .doc-hero-right p { font-size: 11px; color: #666; line-height: 1.9; }
+.theme-c .doc-hero-right .meta-key { font-weight: 700; color: #111; }
+/* 수신 섹션 */
+.theme-c .doc-recipient {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0; margin-bottom: 32px;
+}
+.theme-c .doc-recipient-block {}
+.theme-c .doc-recipient-label {
+  font-size: 10px; font-weight: 900; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #111; margin-bottom: 8px;
+}
+.theme-c .doc-recipient-val { font-size: 11px; color: #555; line-height: 1.9; }
+/* 테이블 */
+.theme-c .doc-table { width: 100%; border-collapse: collapse; }
+.theme-c .doc-table thead tr { border-top: 2px solid #111; border-bottom: 2px solid #111; }
+.theme-c .doc-table th {
+  padding: 10px 12px; font-size: 10px; font-weight: 900;
+  letter-spacing: 0.06em; text-transform: uppercase; color: #111; text-align: left;
+}
+.theme-c .doc-table th:not(:first-child) { text-align: right; }
+.theme-c .doc-table tbody tr { border-bottom: 1px solid #d8d8d6; }
+.theme-c .doc-table tbody tr:last-child { border-bottom: 2px solid #111; }
+.theme-c .doc-table td { padding: 12px 12px; font-size: 12px; color: #222; }
+.theme-c .doc-table td:not(:first-child) { text-align: right; }
+.theme-c .td-grade { font-size: 9px; color: #aaa; margin-top: 2px; }
+.theme-c .td-note  { font-size: 10px; color: #aaa; margin-top: 1px; }
+/* 합계 + 메모 2단 */
+.theme-c .doc-lower {
+  display: grid; grid-template-columns: 1fr 200px;
+  gap: 24px; padding-top: 16px; margin-bottom: 0;
+}
+.theme-c .doc-notes-label { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #111; margin-bottom: 8px; letter-spacing: 0.06em; }
+.theme-c .doc-notes-val { font-size: 11px; color: #666; line-height: 1.8; }
+.theme-c .doc-sum-col {}
+.theme-c .doc-sub-row {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: #666; line-height: 2;
+  border-bottom: 1px solid #ddd;
+}
+.theme-c .doc-sub-row:last-child { border-bottom: none; }
+.theme-c .doc-total-final {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 14px; font-weight: 900; color: #111;
+  border-top: 2px solid #111; padding-top: 8px; margin-top: 4px;
+}
+/* 하단 감사 마감 */
+.theme-c .doc-footer-bar {
+  margin-top: auto;
+  background: #111;
+  padding: 18px 56px;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-left: -56px; margin-right: -56px;
+}
+.theme-c .doc-footer-left { font-size: 10px; color: #666; line-height: 1.9; }
+.theme-c .doc-footer-thanks {
+  font-size: 20px; font-weight: 900; color: #fff;
+  line-height: 1.05; letter-spacing: -0.01em; text-align: right;
+}
+.theme-c .doc-notices { padding: 16px 0 0; }
+.theme-c .doc-notice-item { display: flex; align-items: flex-start; gap: 6px; font-size: 9px; color: #999; line-height: 1.7; margin-bottom: 1px; }
+.theme-c .doc-notice-item::before { content: '·'; flex-shrink: 0; }
+
+.empty-items { padding: 18px 8px; text-align: center; font-size: 11px; color: var(--text-muted); border: 1px dashed var(--input-border); letter-spacing: 0.05em; }
+body.resizing { user-select: none; cursor: col-resize; }
+body.resizing .panel-right { pointer-events: none; }
+
+/* ── LIGHT MODE OVERRIDES ── */
+body.light-mode .panel-left { background: var(--panel-bg); }
+body.light-mode .field input,
+body.light-mode .field select,
+body.light-mode .field textarea { color: #111; }
+body.light-mode .field input::placeholder,
+body.light-mode .field textarea::placeholder { color: #bbb; }
+body.light-mode .field select option { background: #fff; color: #111; }
+body.light-mode .rate-input { color: #111; }
+body.light-mode .rate-input.unit-input,
+body.light-mode .rate-input.price-input { color: #555; }
+body.light-mode .rate-input:focus { background: #f0f0ee; }
+body.light-mode .btn-add-item { background: #111; color: #fff; }
+body.light-mode .btn-add-item:hover { background: #333; }
+body.light-mode .grade-btn { color: #555; }
+body.light-mode .grade-btn.active { background: #111; color: #fff; border-color: #111; }
+body.light-mode .tax-option:has(input:checked) { background: #111; }
+body.light-mode .tax-option:has(input:checked) .tax-opt-title { color: #fff; }
+body.light-mode .tax-option:has(input:checked) .tax-check { color: #fff; }
+body.light-mode .save-check-box { background: #fff; border-color: #d4d4d2; }
+body.light-mode .save-check-box:checked { background: #111; border-color: #111; }
+body.light-mode .save-check-box:checked::after { border-color: #fff; }
+body.light-mode .toggle-track { background: #d0d0ce; }
+body.light-mode .toggle-track::after { background: #aaa; }
+body.light-mode .toggle input:checked + .toggle-track { background: #111; }
+body.light-mode .toggle input:checked + .toggle-track::after { background: #fff; }
+body.light-mode .inline-num { color: #111; }
+body.light-mode .btn-add-rate { color: #555; }
+body.light-mode .btn-add-rate:hover { color: #111; border-color: #888; }
+body.light-mode .btn-del-rate { color: #bbb; }
+body.light-mode .btn-del-rate:hover { color: #111; }
+body.light-mode .btn-del:hover { background: #111; color: #fff; border-color: #111; }
+body.light-mode .item-card { background: #ededeb; border-left-color: #d0d0ce; }
+body.light-mode .theme-card { border-color: #d8d8d6; }
+body.light-mode .theme-card.active { border-color: #111; }
+body.light-mode .theme-card.active::after { color: #111; }
+body.light-mode .theme-label { color: #555; border-top-color: #e0e0de; }
+body.light-mode .btn-generate { background: #111; color: #fff; }
+body.light-mode .btn-generate:hover { background: #333; }
+body.light-mode .logo-drop-area { background: #fff; }
+body.light-mode .logo-drop-area:hover { background: #f5f5f3; }
+body.light-mode .empty-items { border-color: #d4d4d2; }
+body.light-mode .resizer::after { background: #ccc; }
+body.light-mode .preview-label { color: #aaa; }
+body.light-mode .btn-print { background: #111; }
+body.light-mode .btn-print:hover { background: #333; }
+
+/* ── GUIDE FAB BUTTON ── */
+.fab-guide {
+  position: fixed; bottom: 28px; right: 28px; z-index: 300;
+  width: 48px; height: 48px;
+  background: var(--text-primary); color: var(--panel-bg);
+  border: none; cursor: pointer;
+  font-family: var(--suit); font-size: 18px; font-weight: 300;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.28);
+  transition: background 0.15s, transform 0.15s;
+}
+.fab-guide:hover { background: #ccc; transform: translateY(-2px); }
+body.light-mode .fab-guide { background: #111; color: #fff; }
+body.light-mode .fab-guide:hover { background: #333; }
+
+/* ── GUIDE MODAL OVERLAY ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+  backdrop-filter: blur(2px);
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+
+/* ── GUIDE MODAL BOX ── */
+.modal-box {
+  width: 580px; max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 80px);
+  background: #111; color: #e8e8e6;
+  overflow-y: auto;
+  transform: translateY(16px); transition: transform 0.2s;
+  display: flex; flex-direction: column;
+}
+body.light-mode .modal-box { background: #fff; color: #111; }
+.modal-overlay.open .modal-box { transform: translateY(0); }
+
+.modal-box::-webkit-scrollbar { width: 3px; }
+.modal-box::-webkit-scrollbar-thumb { background: #333; }
+body.light-mode .modal-box::-webkit-scrollbar-thumb { background: #ccc; }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid #222;
+  position: sticky; top: 0; background: #111; z-index: 1;
+}
+body.light-mode .modal-header { background: #fff; border-bottom-color: #eee; }
+.modal-title { font-family: var(--suit); font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.modal-close {
+  width: 28px; height: 28px; background: none; border: none; cursor: pointer;
+  color: #666; font-size: 20px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s;
+}
+.modal-close:hover { color: #e8e8e6; }
+body.light-mode .modal-close { color: #aaa; }
+body.light-mode .modal-close:hover { color: #111; }
+
+.modal-body { padding: 24px 28px 32px; display: flex; flex-direction: column; gap: 24px; }
+
+/* 가이드 스텝 */
+.guide-step {
+  display: grid; grid-template-columns: 36px 1fr; gap: 14px; align-items: start;
+}
+.guide-step-num {
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: #1e1e1e; border: 1px solid #2a2a2a;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #666;
+  font-family: var(--suit); letter-spacing: 0.04em;
+}
+body.light-mode .guide-step-num { background: #f5f5f3; border-color: #e0e0de; color: #aaa; }
+.guide-step-content {}
+.guide-step-title { font-size: 13px; font-weight: 700; color: #e8e8e6; margin-bottom: 5px; line-height: 1; padding-top: 9px; }
+body.light-mode .guide-step-title { color: #111; }
+.guide-step-desc { font-size: 11px; color: #666; line-height: 1.75; }
+body.light-mode .guide-step-desc { color: #777; }
+.guide-step-desc code {
+  background: #1e1e1e; color: #e8e8e6;
+  padding: 1px 6px; font-size: 10px; font-family: 'Courier New', monospace;
+  letter-spacing: 0.02em;
+}
+body.light-mode .guide-step-desc code { background: #f0f0ee; color: #333; }
+
+/* 구분선 */
+.modal-divider {
+  height: 1px; background: #1e1e1e; margin: 0;
+}
+body.light-mode .modal-divider { background: #eee; }
+
+/* 섹션 헤더 */
+.guide-section-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.2em;
+  text-transform: uppercase; color: #444;
+  padding-bottom: 10px; border-bottom: 1px solid #1e1e1e;
+}
+body.light-mode .guide-section-label { color: #bbb; border-bottom-color: #eee; }
+
+/* 팁 박스 */
+.guide-tip {
+  background: #1a1a1a; border-left: 2px solid #3a3a3a;
+  padding: 12px 16px; font-size: 11px; color: #666; line-height: 1.7;
+}
+body.light-mode .guide-tip { background: #f7f7f5; border-left-color: #d0d0ce; color: #888; }
+.guide-tip strong { color: #999; font-weight: 600; }
+body.light-mode .guide-tip strong { color: #555; }
+
+/* 배포 코드 블록 */
+.guide-code-block {
+  background: #0e0e0e; border: 1px solid #1e1e1e;
+  padding: 14px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px; color: #888; line-height: 2;
+}
+body.light-mode .guide-code-block { background: #f5f5f3; border-color: #e0e0de; color: #555; }
+.guide-code-block .cmd { color: #c0c0be; }
+body.light-mode .guide-code-block .cmd { color: #333; }
+.guide-code-block .cmt { color: #444; font-style: italic; }
+body.light-mode .guide-code-block .cmt { color: #bbb; }
+
+@media print {
+  header, .panel-left, .resizer, .preview-toolbar { display: none !important; }
+  body { background: white; overflow: auto; }
+  .app { display: block; height: auto; margin-top: 0; }
+  .panel-right { background: white; padding: 0; display: block; }
+  .quote-doc { box-shadow: none; max-width: none; width: 100%; min-height: auto; }
+  .quote-doc.theme-a { padding: 40px; }
+  .quote-doc.theme-b { padding: 40px; }
+  .quote-doc.theme-c { padding: 40px 44px 0; min-height: 100vh; }
+  .fab-guide, .modal-overlay { display: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">견적한장</div>
+    <div class="header-sub">디자인 견적 자동화 시스템</div>
+  </div>
+  <div class="mode-toggle" onclick="toggleMode()" title="라이트 / 다크 모드 전환">
+    <span class="mode-icon" id="modeIcon">☀︎</span>
+    <div class="mode-toggle-track"></div>
+    <span class="mode-toggle-label" id="modeLabel">Light</span>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- LEFT PANEL -->
+  <div class="panel-left" id="panelLeft">
+
+    <!-- 01 수신처 -->
+    <div class="section-title"><span class="num">01 /</span> 수신처 정보</div>
+    <div class="client-block">
+      <div class="field-row">
+        <div class="field"><label>클라이언트명</label><input type="text" id="clientName" placeholder="홍길동 / 주식회사 OOO" oninput="render()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>담당자</label><input type="text" id="clientManager" placeholder="담당자 이름" oninput="render()"></div>
+        <div class="field"><label>연락처</label><input type="text" id="clientContact" placeholder="010-0000-0000" oninput="phoneFormat(this);render()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>프로젝트명</label><input type="text" id="projectName" placeholder="프로젝트 제목" oninput="render()"></div>
+      </div>
+    </div>
+
+    <!-- 02 공급자 -->
+    <div class="section-title"><span class="num">02 /</span> 공급자 정보</div>
+    <div class="client-block">
+      <div class="field-row">
+        <div class="field"><label>상호 (회사명)</label><input type="text" id="senderCompany" placeholder="OOO 스튜디오 / 주식회사 OOO" oninput="render();autoSave()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>담당자 이름</label><input type="text" id="senderName" placeholder="홍길동" oninput="render();autoSave()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>연락처</label><input type="text" id="senderContact" placeholder="010-0000-0000" oninput="phoneFormat(this);render();autoSave()"></div>
+        <div class="field"><label>이메일</label><input type="text" id="senderEmail" placeholder="email@example.com" oninput="render();autoSave()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>계좌번호</label><input type="text" id="senderBank" placeholder="은행명 000-0000-0000" oninput="render();autoSave()"></div>
+      </div>
+      <div class="save-row">
+        <input type="checkbox" class="save-check-box" id="saveSupplier" onchange="toggleSave()">
+        <label for="saveSupplier" class="save-label">공급자 정보 저장 (브라우저에 기억)</label>
+        <span class="save-status" id="saveStatus"></span>
+      </div>
+    </div>
+
+    <!-- 02-B 로고 이미지 -->
+    <div class="logo-upload-block">
+      <div class="logo-upload-label-row">
+        <span class="logo-upload-title">회사 로고</span>
+        <button class="logo-clear-btn" id="logoClearBtn" onclick="clearLogo()" style="display:none;">× 제거</button>
+      </div>
+      <div class="logo-drop-area" id="logoDropArea" onclick="document.getElementById('logoFileInput').click()">
+        <span class="logo-drop-text" id="logoDropText">클릭 또는 드래그로 로고 업로드</span>
+        <span class="logo-drop-sub" id="logoDropSub">PNG, JPG, SVG 권장 — 투명 배경 PNG 최적</span>
+        <img class="logo-preview-img" id="logoPreviewImg" style="display:none;">
+      </div>
+      <input type="file" id="logoFileInput" accept="image/*" onchange="handleLogoUpload(event)">
+    </div>
+
+    <!-- 03 단가표 -->
+    <div class="section-title"><span class="num">03 /</span> 기준 단가표</div>
+    <div class="rate-block">
+      <div class="rate-toolbar">
+        <span class="rate-toolbar-hint">셀 클릭 후 직접 수정</span>
+        <button class="btn-add-rate" onclick="addRateRow()">+ 항목 추가</button>
+      </div>
+      <table class="rate-table">
+        <thead><tr><th>항목명</th><th style="text-align:center;width:54px">단위</th><th style="text-align:right;width:92px">단가 (원)</th><th style="width:26px"></th></tr></thead>
+        <tbody id="rateTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- 04 견적 항목 -->
+    <div class="section-title"><span class="num">04 /</span> 견적 항목</div>
+    <div class="item-block">
+      <div style="margin-bottom:8px">
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-label);margin-bottom:6px;">디자인 등급</div>
+        <div class="grade-row">
+          <button class="grade-btn active" onclick="setGrade('simple',this)">심플<span class="grade-sub">×1.0</span></button>
+          <button class="grade-btn" onclick="setGrade('mid',this)">중급<span class="grade-sub">×2.0</span></button>
+          <button class="grade-btn" onclick="setGrade('high',this)">고급<span class="grade-sub">×3.0</span></button>
+        </div>
+        <div id="gradeDesc" style="font-size:9px;color:var(--text-muted);padding:4px 2px;line-height:1.6;"></div>
+      </div>
+      <div class="add-row">
+        <div class="field"><label>항목 선택</label><select id="itemSelect"></select></div>
+        <div class="field"><label>수량</label><input type="number" id="itemQty" value="1" min="1"></div>
+        <div class="field"><label>단가</label><input type="number" id="itemPrice" placeholder="자동"></div>
+        <button class="btn-add-item" onclick="addItem()">+</button>
+      </div>
+      <div class="field" style="margin-bottom:8px">
+        <label>비고</label><input type="text" id="itemNote" placeholder="옵션 설명 (선택)">
+      </div>
+      <div class="items-list" id="itemsList"><div class="empty-items">항목을 선택해 추가하세요</div></div>
+    </div>
+
+    <!-- 05 옵션 -->
+    <div class="section-title"><span class="num">05 /</span> 옵션</div>
+    <div class="options-block">
+      <div class="toggle-row">
+        <div><div class="toggle-label">부가세 (VAT 10%)</div><div class="toggle-sub">공급가액의 10% 추가</div></div>
+        <label class="toggle"><input type="checkbox" id="vatToggle" onchange="render()" checked><div class="toggle-track"></div></label>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">할인 적용</div><div class="toggle-sub">소계에서 % 할인</div></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="discountVal" value="0" min="0" max="100" class="inline-num" oninput="render()">
+          <span class="inline-unit">%</span>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">유효기간</div><div class="toggle-sub">견적 유효일</div></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="validDays" value="14" min="1" class="inline-num" oninput="render()">
+          <span class="inline-unit">일</span>
+        </div>
+      </div>
+      <div class="tax-section">
+        <div class="tax-section-label">세금계산서 / 증빙서류</div>
+        <label class="tax-option"><input type="radio" name="taxType" value="invoice" onchange="render()" checked><div class="tax-option-inner"><div class="tax-opt-title">세금계산서 발급 가능</div><div class="tax-opt-sub">사업자등록증 보유</div></div><div class="tax-check">✓</div></label>
+        <label class="tax-option"><input type="radio" name="taxType" value="receipt" onchange="render()"><div class="tax-option-inner"><div class="tax-opt-title">현금영수증만 발급</div><div class="tax-opt-sub">간이과세자 / 개인 프리랜서</div></div><div class="tax-check">✓</div></label>
+        <label class="tax-option"><input type="radio" name="taxType" value="none" onchange="render()"><div class="tax-option-inner"><div class="tax-opt-title">증빙서류 발급 불가</div><div class="tax-opt-sub">개인 프리랜서 — 계좌이체</div></div><div class="tax-check">✓</div></label>
+      </div>
+      <div style="margin-top:12px">
+        <div class="field"><label>메모 / 특기사항</label><textarea id="memoText" placeholder="결제 조건, 납기, 수정 횟수 등" oninput="render()"></textarea></div>
+      </div>
+    </div>
+
+    <!-- 06 견적서 디자인 -->
+    <div class="section-title"><span class="num">06 /</span> 견적서 디자인</div>
+    <div class="theme-section">
+      <div class="theme-grid">
+
+        <!-- Theme A 미리보기 -->
+        <div class="theme-card active" id="themeCard-a" onclick="setTheme('a')">
+          <div class="theme-preview" style="background:#f0efed;padding:8px 10px;">
+            <div style="font-size:9px;font-weight:900;color:#111;letter-spacing:-0.01em;margin-bottom:6px;">Estimate.</div>
+            <div style="height:1px;background:#bbb;margin-bottom:5px;"></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+              <div style="font-size:6px;color:#555;background:#ddd;width:50%;height:5px;"></div>
+              <div style="font-size:6px;color:#555;background:#ddd;width:20%;height:5px;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+              <div style="font-size:6px;color:#555;background:#ddd;width:38%;height:5px;"></div>
+              <div style="font-size:6px;color:#555;background:#ddd;width:20%;height:5px;"></div>
+            </div>
+            <div style="margin-top:auto;padding-top:4px;border-top:1px solid #bbb;display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-size:6px;color:#999;">total</div>
+              <div style="font-size:8px;font-weight:900;color:#111;">170,000</div>
+            </div>
+          </div>
+          <div class="theme-label">A — 클래식</div>
+        </div>
+
+        <!-- Theme B 미리보기 -->
+        <div class="theme-card" id="themeCard-b" onclick="setTheme('b')">
+          <div class="theme-preview" style="background:#f2f1ef;padding:7px 8px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;">
+              <div style="font-size:9px;font-weight:900;letter-spacing:0.06em;color:#111;text-transform:uppercase;">STUDIO</div>
+              <div style="font-size:9px;font-weight:900;color:#c0392b;letter-spacing:0.04em;">ESTIMATE</div>
+            </div>
+            <div style="height:1px;background:#aaa;margin-bottom:4px;"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:4px;">
+              <div><div style="font-size:5px;font-weight:700;color:#111;margin-bottom:1px;">공급자</div><div style="font-size:5px;color:#777;line-height:1.6;">이름<br>연락처</div></div>
+              <div><div style="font-size:5px;font-weight:700;color:#111;margin-bottom:1px;">연락처</div><div style="font-size:5px;color:#777;line-height:1.6;">이메일<br>계좌</div></div>
+            </div>
+            <div style="height:1px;background:#aaa;margin-bottom:3px;"></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;border-bottom:1px solid #ccc;padding-bottom:2px;">
+              <div style="font-size:5px;color:#333;width:50%;">항목명</div>
+              <div style="font-size:5px;color:#333;">단가</div><div style="font-size:5px;color:#333;">수량</div><div style="font-size:5px;color:#333;">금액</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:1px;">
+              <div style="background:#ddd;height:3px;width:45%;"></div>
+              <div style="background:#ddd;height:3px;width:10%;"></div><div style="background:#ddd;height:3px;width:8%;"></div><div style="background:#ddd;height:3px;width:12%;"></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:3px;">
+              <div style="font-size:6px;font-weight:700;color:#111;">합계 &nbsp;170,000</div>
+            </div>
+          </div>
+          <div class="theme-label">B — 인보이스</div>
+        </div>
+
+        <!-- Theme C 미리보기 -->
+        <div class="theme-card" id="themeCard-c" onclick="setTheme('c')">
+          <div class="theme-preview" style="background:#f5f4f2;padding:7px 8px;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+              <div>
+                <div style="font-size:18px;font-weight:900;color:#111;line-height:0.95;letter-spacing:-0.02em;">hello.</div>
+                <div style="font-size:5px;color:#999;letter-spacing:0.1em;margin-top:2px;">THIS IS YOUR ESTIMATE</div>
+              </div>
+              <div style="text-align:right;font-size:5px;color:#666;line-height:1.8;padding-top:1px;">
+                <div style="font-weight:700;color:#111;">Studio</div>
+                <div>2026.05.17</div>
+              </div>
+            </div>
+            <div style="border-top:1.5px solid #111;border-bottom:1.5px solid #111;padding:3px 0;display:flex;justify-content:space-between;margin-bottom:2px;">
+              <div style="font-size:5px;font-weight:900;color:#111;">항목</div>
+              <div style="font-size:5px;font-weight:900;color:#111;">금액</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:1px;border-bottom:1px solid #ddd;padding-bottom:1px;"><div style="background:#ddd;height:3px;width:45%;"></div><div style="background:#ddd;height:3px;width:18%;"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;border-bottom:1.5px solid #111;padding-bottom:2px;"><div style="font-size:5px;color:#999;">total</div><div style="font-size:7px;font-weight:900;color:#111;">170,000</div></div>
+            <div style="background:#111;margin:0 -8px;padding:4px 8px;display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+              <div style="font-size:5px;color:#666;line-height:1.6;">이메일<br>계좌</div>
+              <div style="font-size:8px;font-weight:900;color:#fff;line-height:1.1;">THANKS<br>FOR THIS.</div>
+            </div>
+          </div>
+          <div class="theme-label">C — 헬로</div>
+        </div>
+
+      </div>
+    </div>
+
+    <button class="btn-generate" onclick="window.print()">
+      <span class="btn-icon">↓</span> 견적서 출력 / PDF 저장
+    </button>
+  </div>
+
+  <!-- RESIZER -->
+  <div class="resizer" id="resizer"></div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel-right" id="panelRight">
+    <div class="preview-toolbar">
+      <div class="preview-label">미리보기 — 실시간 반영</div>
+      <button class="btn-print" onclick="window.print()">
+        <span class="btn-icon">⎙</span> 인쇄 / PDF 저장
+      </button>
+    </div>
+    <div class="quote-doc theme-a" id="quoteDoc"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── 1. RESIZER ───
+(function(){
+  const r=document.getElementById('resizer'), p=document.getElementById('panelLeft');
+  let down=false,sx=0,sw=0;
+  r.addEventListener('mousedown',e=>{down=true;sx=e.clientX;sw=p.offsetWidth;r.classList.add('dragging');document.body.classList.add('resizing');});
+  document.addEventListener('mousemove',e=>{if(!down)return;p.style.width=Math.min(640,Math.max(280,sw+e.clientX-sx))+'px';});
+  document.addEventListener('mouseup',()=>{if(!down)return;down=false;r.classList.remove('dragging');document.body.classList.remove('resizing');});
+})();
+
+// ─── MODE TOGGLE ───
+function toggleMode(){
+  const isLight = document.body.classList.toggle('light-mode');
+  document.getElementById('modeIcon').textContent  = isLight ? '☽' : '☀︎';
+  document.getElementById('modeLabel').textContent = isLight ? 'Dark' : 'Light';
+  try { localStorage.setItem('quote_mode', isLight ? 'light' : 'dark'); } catch(e){}
+}
+(function(){
+  try {
+    if(localStorage.getItem('quote_mode') === 'light'){
+      document.body.classList.add('light-mode');
+      document.addEventListener('DOMContentLoaded',()=>{
+        document.getElementById('modeIcon').textContent  = '☽';
+        document.getElementById('modeLabel').textContent = 'Dark';
+      });
+    }
+  } catch(e){}
+})();
+
+// ─── 2. PHONE FORMAT ───
+function phoneFormat(input){
+  const pos=input.selectionStart,prev=input.value;
+  let d=prev.replace(/\D/g,'').slice(0,11),f='';
+  if(d.startsWith('02')){
+    if(d.length<=2)f=d;
+    else if(d.length<=5)f=d.slice(0,2)+'-'+d.slice(2);
+    else if(d.length<=9)f=d.slice(0,2)+'-'+d.slice(2,5)+'-'+d.slice(5);
+    else f=d.slice(0,2)+'-'+d.slice(2,6)+'-'+d.slice(6);
+  }else{
+    if(d.length<=3)f=d;
+    else if(d.length<=6)f=d.slice(0,3)+'-'+d.slice(3);
+    else if(d.length<=10)f=d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
+    else f=d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7);
+  }
+  const added=(f.split('-').length-1)-(prev.split('-').length-1);
+  input.value=f;
+  const np=Math.min(pos+added,f.length);
+  input.setSelectionRange(np,np);
+}
+
+// ─── 3. SUPPLIER SAVE ───
+const SK='quote_supplier_info';
+let logoDataUrl = '';
+
+function loadSavedSupplier(){
+  try{
+    const s=localStorage.getItem(SK); if(!s)return;
+    const d=JSON.parse(s);
+    if(d.company) document.getElementById('senderCompany').value=d.company;
+    if(d.name)    document.getElementById('senderName').value=d.name;
+    if(d.contact) document.getElementById('senderContact').value=d.contact;
+    if(d.email)   document.getElementById('senderEmail').value=d.email;
+    if(d.bank)    document.getElementById('senderBank').value=d.bank;
+    if(d.logo)    setLogoPreview(d.logo);
+    document.getElementById('saveSupplier').checked=true;
+    showSaveStatus('저장된 정보 불러옴'); render();
+  }catch(e){}
+}
+function toggleSave(){
+  if(document.getElementById('saveSupplier').checked){saveSupplier();}
+  else{localStorage.removeItem(SK);showSaveStatus('저장 해제됨');setTimeout(()=>showSaveStatus(''),1800);}
+}
+function saveSupplier(){
+  if(!document.getElementById('saveSupplier').checked)return;
+  try{
+    localStorage.setItem(SK,JSON.stringify({
+      company: document.getElementById('senderCompany').value,
+      name:    document.getElementById('senderName').value,
+      contact: document.getElementById('senderContact').value,
+      email:   document.getElementById('senderEmail').value,
+      bank:    document.getElementById('senderBank').value,
+      logo:    logoDataUrl,
+    }));
+    showSaveStatus('저장됨 ✓'); setTimeout(()=>showSaveStatus(''),2000);
+  }catch(e){}
+}
+let saveTimer;
+function autoSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveSupplier,600);}
+function showSaveStatus(msg){
+  const el=document.getElementById('saveStatus');
+  el.textContent=msg; el.className='save-status'+(msg?' saved':'');
+}
+
+// ─── LOGO UPLOAD ───
+function handleLogoUpload(e){
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{setLogoPreview(ev.target.result); autoSave(); render();};
+  reader.readAsDataURL(file);
+}
+function setLogoPreview(dataUrl){
+  logoDataUrl=dataUrl;
+  const drop=document.getElementById('logoDropArea');
+  const img=document.getElementById('logoPreviewImg');
+  const txt=document.getElementById('logoDropText');
+  const sub=document.getElementById('logoDropSub');
+  const clr=document.getElementById('logoClearBtn');
+  img.src=dataUrl; img.style.display='block';
+  txt.style.display='none'; sub.style.display='none';
+  drop.classList.add('has-logo'); clr.style.display='inline';
+}
+function clearLogo(){
+  logoDataUrl='';
+  const drop=document.getElementById('logoDropArea');
+  const img=document.getElementById('logoPreviewImg');
+  const txt=document.getElementById('logoDropText');
+  const sub=document.getElementById('logoDropSub');
+  const clr=document.getElementById('logoClearBtn');
+  img.style.display='none'; img.src='';
+  txt.style.display=''; sub.style.display='';
+  drop.classList.remove('has-logo'); clr.style.display='none';
+  document.getElementById('logoFileInput').value='';
+  autoSave(); render();
+}
+
+// ─── 4. GRADE ───
+const GRADE_INFO={
+  simple:{label:'심플디자인',mult:1.0,desc:'색상·문구만 변경되는 간단한 디자인 / 시안 2개 / 작업일 2일'},
+  mid:   {label:'중급디자인',mult:2.0,desc:'심플디자인 + 이미지 작업 포함 / 시안 1개 / 작업일 2일'},
+  high:  {label:'고급디자인',mult:3.0,desc:'편집 요소 다수 포함 / 시안 1개 / 작업일 2일'},
+};
+let currentGrade='simple';
+function setGrade(grade,btn){
+  currentGrade=grade;
+  document.querySelectorAll('.grade-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('gradeDesc').textContent=GRADE_INFO[grade].desc;
+  const idx=document.getElementById('itemSelect').value;
+  if(idx!=='') document.getElementById('itemPrice').value=Math.round(RATES[idx].price*GRADE_INFO[grade].mult);
+}
+
+// ─── 5. THEME ───
+let currentTheme='a';
+function setTheme(t){
+  currentTheme=t;
+  document.querySelectorAll('.theme-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('themeCard-'+t).classList.add('active');
+  const doc=document.getElementById('quoteDoc');
+  doc.className='quote-doc theme-'+t;
+  render();
+}
+
+// ─── 6. RATES ───
+let RATES=[
+  {name:'편집 디자인',        unit:'페이지',price:10000 },
+  {name:'UI/UX 서브페이지',   unit:'화면',  price:80000 },
+  {name:'UI/UX 메인페이지',   unit:'화면',  price:150000},
+  {name:'UI/UX 메인+서브2p', unit:'세트',  price:300000},
+  {name:'로고 디자인',        unit:'건',    price:300000},
+  {name:'명함 디자인',        unit:'종',    price:80000 },
+  {name:'브로슈어 / 리플렛',  unit:'종',    price:250000},
+  {name:'포스터 디자인',      unit:'장',    price:150000},
+  {name:'SNS 카드뉴스',       unit:'세트',  price:120000},
+  {name:'SNS / 웹 배너',      unit:'장',    price:50000 },
+  {name:'상세페이지',         unit:'건',    price:400000},
+  {name:'패키지 디자인',      unit:'종',    price:500000},
+  {name:'인포그래픽',         unit:'건',    price:200000},
+  {name:'수정 작업',          unit:'회',    price:30000 },
+  {name:'파일 납품 (원본)',   unit:'건',    price:50000 },
+];
+let items=[];
+let qNum='Q-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
+
+function buildRateTable(){
+  const tb=document.getElementById('rateTableBody');
+  tb.innerHTML=RATES.map((r,i)=>`
+    <tr class="rate-row" id="rr-${i}">
+      <td><input class="rate-input name-input" value="${r.name}" oninput="RATES[${i}].name=this.value;refreshSelect();render()"></td>
+      <td><input class="rate-input unit-input" value="${r.unit}" oninput="RATES[${i}].unit=this.value;refreshSelect();render()"></td>
+      <td><input class="rate-input price-input" type="number" value="${r.price}" oninput="RATES[${i}].price=parseInt(this.value)||0;refreshSelect();render()"></td>
+      <td><button class="btn-del-rate" onclick="deleteRate(${i})">×</button></td>
+    </tr>`).join('');
+  refreshSelect();
+}
+function addRateRow(){
+  RATES.push({name:'새 항목',unit:'건',price:0});
+  buildRateTable();render();
+  const el=document.querySelector(`#rr-${RATES.length-1} .name-input`);
+  if(el){el.focus();el.select();}
+}
+function deleteRate(i){RATES.splice(i,1);buildRateTable();render();}
+function refreshSelect(){
+  const sel=document.getElementById('itemSelect'),cur=sel.value;
+  sel.innerHTML='<option value="">— 항목 선택 —</option>'+
+    RATES.map((r,i)=>`<option value="${i}">${r.name}${r.price?' ('+r.price.toLocaleString()+'원/'+r.unit+')':''}</option>`).join('');
+  if(cur!==''&&parseInt(cur)<RATES.length) sel.value=cur;
+}
+
+// ─── 7. ITEMS ───
+function addItem(){
+  const idx=document.getElementById('itemSelect').value;
+  const qty=parseInt(document.getElementById('itemQty').value)||1;
+  const pv=parseInt(document.getElementById('itemPrice').value);
+  const note=document.getElementById('itemNote').value.trim();
+  if(idx==='')return alert('항목을 선택하세요.');
+  if(isNaN(pv)||pv<0)return alert('단가를 입력하세요.');
+  items.push({name:RATES[idx].name,unit:RATES[idx].unit,qty,price:pv,note,grade:GRADE_INFO[currentGrade].label,gradeKey:currentGrade});
+  document.getElementById('itemQty').value=1;
+  document.getElementById('itemNote').value='';
+  document.getElementById('itemPrice').value='';
+  document.getElementById('itemSelect').value='';
+  renderItemsList();render();
+}
+function removeItem(i){items.splice(i,1);renderItemsList();render();}
+function renderItemsList(){
+  const el=document.getElementById('itemsList');
+  if(items.length===0){el.innerHTML='<div class="empty-items">항목을 선택해 추가하세요</div>';return;}
+  el.innerHTML=items.map((it,i)=>`
+    <div class="item-card">
+      <div class="item-name">${it.name}<span style="font-size:9px;color:var(--text-muted);margin-left:4px;">[${it.grade}]</span></div>
+      <div class="item-num">${it.qty}${it.unit}</div>
+      <div class="item-num">${it.price.toLocaleString()}</div>
+      <div class="item-amount">${(it.qty*it.price).toLocaleString()}원</div>
+      <button class="btn-del" onclick="removeItem(${i})">×</button>
+    </div>`).join('');
+}
+
+// ─── 8. CALC & RENDER ───
+function calcTotals(){
+  const sub=items.reduce((s,it)=>s+it.qty*it.price,0);
+  const dp=parseFloat(document.getElementById('discountVal').value)||0;
+  const disc=Math.round(sub*dp/100);
+  const after=sub-disc;
+  const vat=document.getElementById('vatToggle').checked?Math.round(after*0.1):0;
+  return{subtotal:sub,discPct:dp,discount:disc,afterDiscount:after,vat,total:after+vat};
+}
+function fmtDate(d){return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;}
+
+function getSharedData(){
+  const t=calcTotals();
+  const validDays=parseInt(document.getElementById('validDays').value)||14;
+  const memo=document.getElementById('memoText').value.trim();
+  const senderCompany=document.getElementById('senderCompany').value||'';
+  const senderName=document.getElementById('senderName').value||'';
+  const senderContact=document.getElementById('senderContact').value||'';
+  const senderEmail=document.getElementById('senderEmail').value||'';
+  const senderBank=document.getElementById('senderBank').value||'';
+  const taxType=document.querySelector('input[name="taxType"]:checked')?.value||'invoice';
+  const taxNoticeMap={
+    invoice:'세금계산서 발급이 가능합니다. 계약 확정 후 사업자 정보를 공유해 주세요.',
+    receipt:'간이과세자로 세금계산서 발급은 불가하며, 요청 시 현금영수증을 발행해 드립니다.',
+    none:'개인 프리랜서로 세금계산서 및 현금영수증 발급이 어렵습니다. 계좌이체로 진행됩니다.',
+  };
+  const notices=[
+    '상업적으로 사용할 수 없는 이미지 사용 불가합니다.',
+    '클라이언트 제공 자료의 저작권 책임은 의뢰자에게 있습니다.',
+    `본 견적서는 발행일로부터 ${validDays}일간 유효합니다.`,
+    taxNoticeMap[taxType],
+  ];
+  if(memo)notices.unshift(memo);
+  const tableRows=items.length===0
+    ?null
+    :items.map(it=>`
+      <tr>
+        <td class="td-name">${it.name}${it.gradeKey!=='simple'?`<div class="td-grade">${it.grade}</div>`:''}${it.note?`<div class="td-note">${it.note}</div>`:''}</td>
+        <td>${it.price.toLocaleString()}</td>
+        <td>${it.qty}</td>
+        <td>${(it.qty*it.price).toLocaleString()}</td>
+      </tr>`).join('')+
+      `<tr><td class="td-dash">–</td><td class="td-dash">–</td><td class="td-dash">–</td><td class="td-dash">–</td></tr>`;
+  const emptyRow=`<tr><td colspan="4" style="text-align:center;padding:32px;color:#ccc;font-size:11px;">좌측 패널에서 견적 항목을 추가하세요</td></tr>`;
+  const hasVat=document.getElementById('vatToggle').checked;
+  const subBlock=(t.discPct>0||hasVat)?`
+    <div class="doc-sub-totals">
+      <div class="doc-sub-row"><span>소계</span><span>${t.subtotal.toLocaleString()}</span></div>
+      ${t.discPct>0?`<div class="doc-sub-row"><span>할인 (${t.discPct}%)</span><span>− ${t.discount.toLocaleString()}</span></div>`:''}
+      ${hasVat?`<div class="doc-sub-row"><span>VAT 10%</span><span>${t.vat.toLocaleString()}</span></div>`:''}
+    </div>`:'';
+  return{t,senderCompany,senderName,senderContact,senderEmail,senderBank,notices,tableRows:tableRows||emptyRow,subBlock,date:fmtDate(new Date()),logo:logoDataUrl};
+}
+
+function renderThemeA(d){
+  const{t,senderCompany,senderName,senderContact,senderEmail,senderBank,notices,tableRows,subBlock,date,logo}=d;
+  const displayName = senderCompany || senderName || '';
+  const displaySub  = senderCompany && senderName ? senderName : '';
+  const metaLines=[
+    displayName||null,
+    displaySub||null,
+    senderContact&&senderEmail?`${senderContact} / ${senderEmail}`:(senderContact||senderEmail||null),
+    senderBank||null,
+  ].filter(Boolean);
+  return `
+    <div class="doc-top">
+      <div>
+        ${logo?`<img src="${logo}" style="max-height:52px;max-width:180px;object-fit:contain;display:block;margin-bottom:12px;" alt="logo">`:''}
+        <div class="doc-title-main">Estimate.</div>
+      </div>
+      <div class="doc-sender-info">
+        <p class="date-line">${date}</p>
+        ${metaLines.map(l=>`<p>${l}</p>`).join('')}
+      </div>
+    </div>
+    <table class="doc-table">
+      <thead><tr><th>항목</th><th style="text-align:right">단가</th><th style="text-align:right">수량</th><th style="text-align:right">금액</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+    <div class="doc-total-row">
+      ${subBlock}
+      <div class="doc-total-inner"><span class="doc-total-label">total</span><span class="doc-total-amount">${t.total.toLocaleString()}</span></div>
+    </div>
+    <div class="doc-bottom">
+      <div class="doc-notices">${notices.map(n=>`<div class="doc-notice-item">${n}</div>`).join('')}</div>
+    </div>`;
+}
+
+function renderThemeB(d){
+  const{t,senderCompany,senderName,senderContact,senderEmail,senderBank,notices,date,logo}=d;
+  const clientName=document.getElementById('clientName').value||'';
+  const clientManager=document.getElementById('clientManager').value||'';
+  const clientContact=document.getElementById('clientContact').value||'';
+  const projectName=document.getElementById('projectName').value||'';
+  const hasVat=document.getElementById('vatToggle').checked;
+
+  // 헤더: 로고 + 상호만
+  const brandDisplay = senderCompany || senderName || 'STUDIO';
+
+  // 공급자 섹션: 왼쪽 = 담당자+연락처/이메일, 오른쪽 = 수신처
+  // 하단 결제정보: 계좌+예금주
+
+  const sumRows=`
+    ${t.discPct>0||hasVat?`<div class="doc-sub-row"><span>소계</span><span>${t.subtotal.toLocaleString()}</span></div>`:''}
+    ${t.discPct>0?`<div class="doc-sub-row"><span>할인 (${t.discPct}%)</span><span>− ${t.discount.toLocaleString()}</span></div>`:''}
+    ${hasVat?`<div class="doc-sub-row"><span>부가세 (VAT 10%)</span><span>${t.vat.toLocaleString()}</span></div>`:''}
+    <div class="doc-sub-row total-final"><span>합계</span><span>${t.total.toLocaleString()}</span></div>`;
+
+  return `
+    <div class="doc-brand-row">
+      <div style="display:flex;align-items:center;gap:16px;">
+        ${logo?`<img src="${logo}" style="max-height:40px;max-width:140px;object-fit:contain;display:block;" alt="logo">`:''}
+        <div class="doc-brand-name" style="${logo?'font-size:16px;font-weight:700;':''}">
+          ${senderCompany || senderName || 'STUDIO'}
+        </div>
+      </div>
+      <div class="doc-type-badge">ESTIMATE</div>
+    </div>
+
+    <div class="doc-info-grid">
+      <div class="doc-info-col">
+        <div class="doc-info-label">담당자</div>
+        <div class="doc-info-value">
+          ${senderName?`<strong style="color:#111;font-size:12px;">${senderName}</strong><br>`:''}
+          ${senderContact?senderContact+'<br>':''}
+          ${senderEmail?senderEmail:''}
+        </div>
+      </div>
+      <div class="doc-info-col">
+        <div class="doc-info-label">수신</div>
+        <div class="doc-info-value">
+          ${clientName?`<strong style="color:#111;font-size:12px;">${clientName}</strong><br>`:'—'}
+          ${clientManager?clientManager+'<br>':''}
+          ${clientContact?clientContact:''}
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-meta-bar">
+      <div class="doc-meta-cell">
+        <div class="doc-meta-key">합계 금액</div>
+        <div class="doc-meta-val">₩ ${t.total.toLocaleString()}</div>
+      </div>
+      <div class="doc-meta-cell">
+        <div class="doc-meta-key">발행일</div>
+        <div class="doc-meta-val">${date}</div>
+      </div>
+      <div class="doc-meta-cell">
+        <div class="doc-meta-key">견적 번호</div>
+        <div class="doc-meta-val">${qNum}</div>
+      </div>
+      <div class="doc-meta-cell">
+        <div class="doc-meta-key">프로젝트</div>
+        <div class="doc-meta-val">${projectName||'—'}</div>
+      </div>
+    </div>
+
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th style="width:42%">#&nbsp;&nbsp;항목</th>
+          <th style="text-align:right">단가</th>
+          <th style="text-align:right">수량</th>
+          <th style="text-align:right">금액</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.length===0
+          ?`<tr><td colspan="4" style="text-align:center;padding:28px;color:#bbb;font-size:11px;">좌측 패널에서 견적 항목을 추가하세요</td></tr>`
+          :items.map((it,i)=>`
+            <tr>
+              <td><span style="color:#aaa;margin-right:8px;font-size:10px;">${i+1}</span>${it.name}${it.gradeKey!=='simple'?`<div class="td-grade">${it.grade}</div>`:''}${it.note?`<div class="td-note">${it.note}</div>`:''}</td>
+              <td style="text-align:right">${it.price.toLocaleString()}</td>
+              <td class="td-num">${it.qty} ${it.unit}</td>
+              <td style="text-align:right">${(it.qty*it.price).toLocaleString()}</td>
+            </tr>`).join('')
+        }
+      </tbody>
+    </table>
+
+    <div class="doc-sum-section">
+      <div class="doc-sum-table">${sumRows}</div>
+    </div>
+
+    <div class="doc-payment-row">
+      <div>
+        <div class="doc-payment-label">결제 정보</div>
+        <div class="doc-payment-info">
+          ${senderBank?`<div><span>계좌</span>${senderBank}</div>`:''}
+          ${(senderCompany||senderName)?`<div><span>예금주</span>${senderCompany||senderName}</div>`:''}
+        </div>
+      </div>
+      <div class="doc-sig-block">
+        <div class="doc-sig-label">Confirmed By</div>
+        <div class="doc-sig-name">${brandDisplay}</div>
+      </div>
+    </div>
+    <div class="doc-notices">${notices.map(n=>`<div class="doc-notice-item">${n}</div>`).join('')}</div>`;
+}
+
+function renderThemeC(d){
+  const{t,senderCompany,senderName,senderContact,senderEmail,senderBank,notices,date,logo}=d;
+  const clientName=document.getElementById('clientName').value||'';
+  const clientContact=document.getElementById('clientContact').value||'';
+  const projectName=document.getElementById('projectName').value||'';
+  const memo=document.getElementById('memoText').value.trim();
+  const hasVat=document.getElementById('vatToggle').checked;
+  const brandDisplay = senderCompany || senderName || 'Studio';
+
+  const tableRows=items.length===0
+    ?`<tr><td colspan="4" style="text-align:center;padding:32px;color:#bbb;font-size:11px;">좌측 패널에서 견적 항목을 추가하세요</td></tr>`
+    :items.map(it=>`
+      <tr>
+        <td class="td-name">${it.name}${it.gradeKey!=='simple'?`<div class="td-grade">${it.grade}</div>`:''}${it.note?`<div class="td-note">${it.note}</div>`:''}</td>
+        <td>${it.price.toLocaleString()}</td>
+        <td>${it.qty}</td>
+        <td>${(it.qty*it.price).toLocaleString()}</td>
+      </tr>`).join('');
+
+  const sumRows=`
+    ${t.discPct>0||hasVat?`<div class="doc-sub-row"><span>소계</span><span>${t.subtotal.toLocaleString()}</span></div>`:''}
+    ${t.discPct>0?`<div class="doc-sub-row"><span>할인 (${t.discPct}%)</span><span>− ${t.discount.toLocaleString()}</span></div>`:''}
+    ${hasVat?`<div class="doc-sub-row"><span>부가세 10%</span><span>${t.vat.toLocaleString()}</span></div>`:''}
+    <div class="doc-total-final"><span>Total</span><span>${t.total.toLocaleString()}</span></div>`;
+
+  // 계좌 정보 시안성 강화 — 라벨/값 분리
+  const bankBlock = senderBank ? (() => {
+    const parts = senderBank.trim().split(' ');
+    const bankName = parts.length > 1 ? parts[0] : '';
+    const bankNum  = parts.length > 1 ? parts.slice(1).join(' ') : senderBank;
+    return `
+      <div style="margin-top:10px;">
+        ${bankName?`<div style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:3px;">${bankName}</div>`:''}
+        <div style="font-size:13px;font-weight:700;color:#fff;letter-spacing:0.04em;">${bankNum}</div>
+        ${(senderCompany||senderName)?`<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;">예금주 &nbsp;${senderCompany||senderName}</div>`:''}
+      </div>`;
+  })() : '';
+
+  return `
+    <div class="doc-hero">
+      <div class="doc-hero-left">
+        ${logo?`<img src="${logo}" style="max-height:48px;max-width:160px;object-fit:contain;display:block;margin-bottom:14px;filter:brightness(0);" alt="logo">`:''}
+        <div class="doc-hello">hello.</div>
+        <div class="doc-hello-sub">Your design estimate is ready.</div>
+      </div>
+      <div class="doc-hero-right">
+        <div class="brand">${brandDisplay}</div>
+        ${senderName&&senderCompany?`<p style="font-size:11px;color:#888;margin-top:2px;">${senderName}</p>`:''}
+        ${qNum?`<p><span class="meta-key">ESTIMATE NO.</span> ${qNum}</p>`:''}
+        <p><span class="meta-key">DATE</span> ${date}</p>
+        ${projectName?`<p><span class="meta-key">PROJECT</span> ${projectName}</p>`:''}
+      </div>
+    </div>
+    ${clientName?`
+    <div class="doc-recipient">
+      <div class="doc-recipient-block">
+        <div class="doc-recipient-label">Bill To</div>
+        <div class="doc-recipient-val">${clientName}${clientContact?'<br>'+clientContact:''}</div>
+      </div>
+    </div>`:''}
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th style="width:44%">Item Description</th>
+          <th style="text-align:right">단가</th>
+          <th style="text-align:right">수량</th>
+          <th style="text-align:right">Item Total</th>
+        </tr>
+      </thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+    <div class="doc-lower">
+      <div>
+        <div class="doc-notes-label">Notes</div>
+        <div class="doc-notes-val">${memo||'—'}</div>
+        <div class="doc-notices" style="margin-top:16px">${notices.map(n=>`<div class="doc-notice-item">${n}</div>`).join('')}</div>
+      </div>
+      <div class="doc-sum-col">${sumRows}</div>
+    </div>
+    <div class="doc-footer-bar">
+      <div class="doc-footer-left">
+        ${senderContact?`<div>${senderContact}</div>`:''}
+        ${senderEmail?`<div>${senderEmail}</div>`:''}
+        ${bankBlock}
+      </div>
+      <div class="doc-footer-thanks">THANKS FOR<br>YOUR BUSINESS.</div>
+    </div>`;
+}
+
+function render(){
+  const d=getSharedData();
+  const doc=document.getElementById('quoteDoc');
+  if(currentTheme==='a') doc.innerHTML=renderThemeA(d);
+  else if(currentTheme==='b') doc.innerHTML=renderThemeB(d);
+  else doc.innerHTML=renderThemeC(d);
+}
+
+// ─── INIT ───
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('itemSelect').addEventListener('change',function(){
+    const idx=this.value;
+    document.getElementById('itemPrice').value=idx!==''?Math.round(RATES[idx].price*GRADE_INFO[currentGrade].mult):'';
+  });
+  document.getElementById('gradeDesc').textContent=GRADE_INFO['simple'].desc;
+  // Logo drag & drop
+  const drop=document.getElementById('logoDropArea');
+  drop.addEventListener('dragover',e=>{e.preventDefault();drop.style.borderColor='var(--input-focus)';});
+  drop.addEventListener('dragleave',()=>{if(!logoDataUrl)drop.style.borderColor='';});
+  drop.addEventListener('drop',e=>{
+    e.preventDefault();
+    const file=e.dataTransfer.files[0]; if(!file||!file.type.startsWith('image/'))return;
+    const r=new FileReader();
+    r.onload=ev=>{setLogoPreview(ev.target.result);autoSave();render();};
+    r.readAsDataURL(file);
+  });
+  buildRateTable();
+  loadSavedSupplier();
+  render();
+});
+// ─── GUIDE MODAL ───
+function openGuide(){
+  document.getElementById('guideModal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeGuide(){
+  document.getElementById('guideModal').classList.remove('open');
+  document.body.style.overflow='';
+}
+function handleOverlayClick(e){
+  if(e.target===document.getElementById('guideModal')) closeGuide();
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeGuide();
+});
+</script>
+<!-- ── GUIDE FAB ── -->
+<button class="fab-guide" onclick="openGuide()" title="사용 가이드">?</button>
+
+<!-- ── GUIDE MODAL ── -->
+<div class="modal-overlay" id="guideModal" onclick="handleOverlayClick(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">견적한장 사용 가이드</div>
+      <button class="modal-close" onclick="closeGuide()">×</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- 기본 사용법 -->
+      <div class="guide-section-label">기본 사용법</div>
+
+      <div class="guide-step">
+        <div class="guide-step-num">01</div>
+        <div class="guide-step-content">
+          <div class="guide-step-title">공급자 정보 입력</div>
+          <div class="guide-step-desc">상호(회사명)·담당자 이름·연락처·이메일·계좌번호를 입력하세요. <br>로고 이미지는 클릭 또는 드래그로 업로드할 수 있습니다.<br><strong style="color:#777">💾 저장 체크박스</strong>를 선택하면 다음 방문 시 자동으로 불러옵니다.</div>
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-step-num">02</div>
+        <div class="guide-step-content">
+          <div class="guide-step-title">수신처 정보 입력</div>
+          <div class="guide-step-desc">클라이언트명·담당자·연락처·프로젝트명을 입력하면 견적서에 즉시 반영됩니다.</div>
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-step-num">03</div>
+        <div class="guide-step-content">
+          <div class="guide-step-title">기준 단가표 편집</div>
+          <div class="guide-step-desc">항목명·단위·단가를 셀 클릭 후 직접 수정할 수 있습니다.<br><code>+ 항목 추가</code> 버튼으로 새 항목을 넣고, × 버튼으로 삭제합니다.</div>
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-step-num">04</div>
+        <div class="guide-step-content">
+          <div class="guide-step-title">디자인 등급 선택 후 항목 추가</div>
+          <div class="guide-step-desc">심플(×1.0) / 중급(×2.0) / 고급(×3.0) 등급을 먼저 선택하면 단가가 자동 배율 적용됩니다.<br>항목을 선택하고 <code>+</code>를 누르면 견적 목록에 추가됩니다.</div>
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-step-num">05</div>
+        <div class="guide-step-content">
+          <div class="guide-step-title">옵션 설정</div>
+          <div class="guide-step-desc">부가세(VAT) 토글, 할인율(%), 유효기간(일), 세금계산서 발급 여부, 메모를 설정합니다.</div>
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-step-num">06</div>
+        <div class="guide-step-content">
+          <div class="guide-step-title">견적서 디자인 선택</div>
+          <div class="guide-step-desc">A(클래식) / B(인보이스) / C(헬로) 세 가지 테마 중 선택하면 오른쪽 미리보기가 즉시 전환됩니다.</div>
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-step-num">07</div>
+        <div class="guide-step-content">
+          <div class="guide-step-title">출력 / PDF 저장</div>
+          <div class="guide-step-desc">하단 <code>↓ 견적서 출력</code> 버튼 또는 우상단 <code>⎙ 인쇄</code> 버튼을 클릭합니다.<br>브라우저 인쇄 창에서 <strong style="color:#777">대상 → PDF로 저장</strong>을 선택하면 PDF 파일로 내보낼 수 있습니다.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
