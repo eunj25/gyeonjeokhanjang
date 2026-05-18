@@ -198,8 +198,8 @@ body.light-mode .mode-toggle-track::after { transform: translateX(16px); backgro
 .rate-table { width: 100%; border-collapse: collapse; }
 .rate-table thead tr { border-bottom: 1px solid var(--panel-border); }
 .rate-table th { text-align: left; font-size: 8px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); padding: 5px 6px 7px; }
-.rate-table th:nth-child(2) { text-align: center; }
-.rate-table th:nth-child(3) { text-align: right; }
+.rate-table th:nth-child(3) { text-align: center; }
+.rate-table th:nth-child(4) { text-align: right; }
 .rate-row td { border-bottom: 1px solid var(--panel-border-mid); }
 .rate-row:last-child td { border-bottom: none; }
 .rate-input { font-family: var(--pre); font-size: 12px; padding: 6px; background: transparent; border: none; color: var(--text-primary); outline: none; width: 100%; transition: background 0.12s; }
@@ -210,9 +210,22 @@ body.light-mode .mode-toggle-track::after { transform: translateX(16px); backgro
 .btn-del-rate { width: 22px; height: 22px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: color 0.15s; margin: 0 auto; }
 .btn-del-rate:hover { color: #e0e0de; }
 
+/* 드래그 핸들 */
+.drag-handle {
+  width: 20px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab; color: var(--text-muted); font-size: 12px;
+  user-select: none; transition: color 0.15s;
+}
+.drag-handle:active { cursor: grabbing; }
+.drag-handle:hover { color: var(--text-secondary); }
+.rate-row { transition: background 0.1s; }
+.rate-row.drag-over { background: var(--input-bg); border-top: 2px solid var(--text-secondary); }
+.rate-row.dragging-row { opacity: 0.4; }
+
 /* ITEM BLOCK */
 .item-block { padding: 16px 24px; border-bottom: 1px solid var(--panel-border); }
-.add-row { display: grid; grid-template-columns: 1fr 56px 60px 28px; gap: 6px; align-items: end; margin-bottom: 8px; }
+.add-row { display: grid; grid-template-columns: 1fr 56px 90px 28px; gap: 6px; align-items: end; margin-bottom: 8px; }
 .btn-add-item { width: 28px; height: 32px; background: var(--text-primary); color: var(--panel-bg); border: none; cursor: pointer; font-size: 18px; font-weight: 300; line-height: 1; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .btn-add-item:hover { background: #bbb; }
 
@@ -787,7 +800,7 @@ body.light-mode .guide-code-block .cmt { color: #bbb; }
         <button class="btn-add-rate" onclick="addRateRow()">+ 항목 추가</button>
       </div>
       <table class="rate-table">
-        <thead><tr><th>항목명</th><th style="text-align:center;width:54px">단위</th><th style="text-align:right;width:92px">단가 (원)</th><th style="width:26px"></th></tr></thead>
+        <thead><tr><th style="width:20px;padding:5px 2px 7px;"></th><th>항목명</th><th style="text-align:center;width:54px">단위</th><th style="text-align:right;width:92px">단가 (원)</th><th style="width:26px"></th></tr></thead>
         <tbody id="rateTableBody"></tbody>
       </table>
     </div>
@@ -799,8 +812,8 @@ body.light-mode .guide-code-block .cmt { color: #bbb; }
         <div style="font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-label);margin-bottom:6px;">디자인 등급</div>
         <div class="grade-row">
           <button class="grade-btn active" onclick="setGrade('simple',this)">심플<span class="grade-sub">×1.0</span></button>
-          <button class="grade-btn" onclick="setGrade('mid',this)">중급<span class="grade-sub">×2.0</span></button>
-          <button class="grade-btn" onclick="setGrade('high',this)">고급<span class="grade-sub">×3.0</span></button>
+          <button class="grade-btn" onclick="setGrade('mid',this)">일반<span class="grade-sub">×1.5</span></button>
+          <button class="grade-btn" onclick="setGrade('high',this)">고급<span class="grade-sub">×2.0</span></button>
         </div>
         <div id="gradeDesc" style="font-size:9px;color:var(--text-muted);padding:4px 2px;line-height:1.6;"></div>
       </div>
@@ -1081,8 +1094,8 @@ function clearLogo(){
 // ─── 4. GRADE ───
 const GRADE_INFO={
   simple:{label:'심플디자인',mult:1.0,desc:'색상·문구만 변경되는 간단한 디자인 / 시안 2개 / 작업일 2일'},
-  mid:   {label:'중급디자인',mult:2.0,desc:'심플디자인 + 이미지 작업 포함 / 시안 1개 / 작업일 2일'},
-  high:  {label:'고급디자인',mult:3.0,desc:'편집 요소 다수 포함 / 시안 1개 / 작업일 2일'},
+  mid:   {label:'일반디자인',mult:1.5,desc:'심플디자인 + 이미지 작업 포함 / 시안 1개 / 작업일 2일'},
+  high:  {label:'고급디자인',mult:2.0,desc:'편집 요소 다수 포함 / 시안 1개 / 작업일 2일'},
 };
 let currentGrade='simple';
 function setGrade(grade,btn){
@@ -1106,7 +1119,9 @@ function setTheme(t){
 }
 
 // ─── 6. RATES ───
-let RATES=[
+const RATES_KEY = 'quote_rates';
+
+const DEFAULT_RATES = [
   {name:'편집 디자인',        unit:'페이지',price:10000 },
   {name:'UI/UX 서브페이지',   unit:'화면',  price:80000 },
   {name:'UI/UX 메인페이지',   unit:'화면',  price:150000},
@@ -1123,27 +1138,101 @@ let RATES=[
   {name:'수정 작업',          unit:'회',    price:30000 },
   {name:'파일 납품 (원본)',   unit:'건',    price:50000 },
 ];
+
+// localStorage에서 불러오거나 기본값 사용
+function loadRates() {
+  try {
+    const saved = localStorage.getItem(RATES_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return DEFAULT_RATES.map(r => ({...r}));
+}
+
+function saveRates() {
+  try { localStorage.setItem(RATES_KEY, JSON.stringify(RATES)); } catch(e) {}
+}
+
+let RATES = loadRates();
 let items=[];
 let qNum='Q-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
+
+// 드래그 상태
+let dragSrcIdx = null;
 
 function buildRateTable(){
   const tb=document.getElementById('rateTableBody');
   tb.innerHTML=RATES.map((r,i)=>`
-    <tr class="rate-row" id="rr-${i}">
-      <td><input class="rate-input name-input" value="${r.name}" oninput="RATES[${i}].name=this.value;refreshSelect();render()"></td>
-      <td><input class="rate-input unit-input" value="${r.unit}" oninput="RATES[${i}].unit=this.value;refreshSelect();render()"></td>
-      <td><input class="rate-input price-input" type="number" value="${r.price}" oninput="RATES[${i}].price=parseInt(this.value)||0;refreshSelect();render()"></td>
+    <tr class="rate-row" id="rr-${i}" draggable="true"
+      ondragstart="onDragStart(event,${i})"
+      ondragover="onDragOver(event,${i})"
+      ondragleave="onDragLeave(event)"
+      ondrop="onDrop(event,${i})"
+      ondragend="onDragEnd()"
+    >
+      <td style="width:20px;padding:0;">
+        <div class="drag-handle" title="드래그로 순서 변경">⠿</div>
+      </td>
+      <td><input class="rate-input name-input" value="${r.name}"
+        oninput="RATES[${i}].name=this.value;saveRates();refreshSelect();render()"></td>
+      <td><input class="rate-input unit-input" value="${r.unit}"
+        oninput="RATES[${i}].unit=this.value;saveRates();refreshSelect();render()"></td>
+      <td><input class="rate-input price-input" type="number" value="${r.price}"
+        oninput="RATES[${i}].price=parseInt(this.value)||0;saveRates();refreshSelect();render()"></td>
       <td><button class="btn-del-rate" onclick="deleteRate(${i})">×</button></td>
     </tr>`).join('');
   refreshSelect();
 }
+
+// ── 드래그앤드롭 ──
+function onDragStart(e, i) {
+  dragSrcIdx = i;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => {
+    const row = document.getElementById(`rr-${i}`);
+    if (row) row.classList.add('dragging-row');
+  }, 0);
+}
+function onDragOver(e, i) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.rate-row').forEach(r => r.classList.remove('drag-over'));
+  if (dragSrcIdx !== i) {
+    const row = document.getElementById(`rr-${i}`);
+    if (row) row.classList.add('drag-over');
+  }
+}
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function onDrop(e, i) {
+  e.preventDefault();
+  if (dragSrcIdx === null || dragSrcIdx === i) return;
+  // 순서 변경
+  const moved = RATES.splice(dragSrcIdx, 1)[0];
+  RATES.splice(i, 0, moved);
+  saveRates();
+  buildRateTable();
+  render();
+}
+function onDragEnd() {
+  dragSrcIdx = null;
+  document.querySelectorAll('.rate-row').forEach(r => {
+    r.classList.remove('dragging-row', 'drag-over');
+  });
+}
+
 function addRateRow(){
   RATES.push({name:'새 항목',unit:'건',price:0});
+  saveRates();
   buildRateTable();render();
   const el=document.querySelector(`#rr-${RATES.length-1} .name-input`);
   if(el){el.focus();el.select();}
 }
-function deleteRate(i){RATES.splice(i,1);buildRateTable();render();}
+function deleteRate(i){
+  RATES.splice(i,1);
+  saveRates();
+  buildRateTable();render();
+}
 function refreshSelect(){
   const sel=document.getElementById('itemSelect'),cur=sel.value;
   sel.innerHTML='<option value="">— 항목 선택 —</option>'+
@@ -1212,7 +1301,7 @@ function getSharedData(){
     `본 견적서는 발행일로부터 ${validDays}일간 유효합니다.`,
     taxNoticeMap[taxType],
   ];
-  if(memo)notices.unshift(memo);
+  if(memo)notices.unshift(memo.replace(/\n/g,'<br>'));
   const tableRows=items.length===0
     ?null
     :items.map(it=>`
@@ -1454,7 +1543,7 @@ function renderThemeC(d){
     <div class="doc-lower">
       <div>
         <div class="doc-notes-label">Notes</div>
-        <div class="doc-notes-val">${memo||'—'}</div>
+        <div class="doc-notes-val">${memo ? memo.replace(/\n/g,'<br>') : '—'}</div>
         <div class="doc-notices" style="margin-top:16px">${notices.map(n=>`<div class="doc-notice-item">${n}</div>`).join('')}</div>
       </div>
       <div class="doc-sum-col">${sumRows}</div>
@@ -1558,7 +1647,7 @@ document.addEventListener('keydown',e=>{
         <div class="guide-step-num">04</div>
         <div class="guide-step-content">
           <div class="guide-step-title">디자인 등급 선택 후 항목 추가</div>
-          <div class="guide-step-desc">심플(×1.0) / 중급(×2.0) / 고급(×3.0) 등급을 먼저 선택하면 단가가 자동 배율 적용됩니다.<br>항목을 선택하고 <code>+</code>를 누르면 견적 목록에 추가됩니다.</div>
+          <div class="guide-step-desc">심플(×1.0) / 일반(×1.5) / 고급(×2.0) 등급을 먼저 선택하면 단가가 자동 배율 적용됩니다.<br>항목을 선택하고 <code>+</code>를 누르면 견적 목록에 추가됩니다.</div>
         </div>
       </div>
 
@@ -1589,354 +1678,6 @@ document.addEventListener('keydown',e=>{
     </div>
   </div>
 </div>
-
-<!-- ════════════════════════════════════════════
-     AUTH OVERLAY — Firebase Google Login + 인증코드
-     (앱 위에 덮이는 레이어, 인증 완료 시 숨김)
-════════════════════════════════════════════ -->
-<div id="authOverlay" style="
-  position:fixed;inset:0;z-index:9999;
-  background:var(--panel-bg,#111);
-  display:flex;align-items:center;justify-content:center;
-  font-family:'SUIT','Pretendard',sans-serif;
-  flex-direction:column;
-">
-
-  <!-- 인앱 브라우저 안내 배너 (기본 숨김, JS로 감지 시 표시) -->
-  <div id="inappBanner" style="
-    display:none;
-    position:fixed;bottom:0;left:0;right:0;
-    background:#1a1a1a;border-top:1px solid #2e2e2e;
-    padding:16px 20px;
-    font-family:'SUIT','Pretendard',sans-serif;
-    z-index:10000;
-  ">
-    <div style="display:flex;align-items:flex-start;gap:12px;max-width:420px;margin:0 auto;">
-      <div style="font-size:20px;flex-shrink:0;margin-top:1px;">⚠️</div>
-      <div style="flex:1;">
-        <div style="font-size:12px;font-weight:700;color:#e8e8e6;margin-bottom:4px;" id="inappTitle">
-          외부 브라우저에서 열어주세요
-        </div>
-        <div style="font-size:11px;color:#666;line-height:1.6;" id="inappDesc">
-          현재 앱 내 브라우저에서는 Google 로그인이 원활하지 않을 수 있습니다.
-        </div>
-        <button id="inappOpenBtn" onclick="openInExternalBrowser()" style="
-          display:inline-flex;align-items:center;gap:6px;
-          margin-top:10px;padding:8px 16px;
-          background:#e8e8e6;color:#111;border:none;cursor:pointer;
-          font-family:'SUIT','Pretendard',sans-serif;
-          font-size:11px;font-weight:700;letter-spacing:0.08em;
-          transition:background 0.15s;
-        ">
-          🌐 외부 브라우저로 열기
-        </button>
-        <div style="margin-top:8px;font-size:10px;color:#444;" id="inappManual"></div>
-      </div>
-      <button onclick="document.getElementById('inappBanner').style.display='none'" style="
-        background:none;border:none;cursor:pointer;color:#444;font-size:18px;padding:0;flex-shrink:0;
-      ">×</button>
-    </div>
-  </div>
-  <!-- 로그인 화면 -->
-  <div id="screenLogin" style="text-align:center;padding:32px 24px;max-width:360px;width:100%;">
-    <div style="font-size:22px;font-weight:900;color:#e8e8e6;letter-spacing:-0.01em;margin-bottom:6px;">견적한장</div>
-    <div style="font-size:11px;color:#444;letter-spacing:0.1em;margin-bottom:48px;">디자인 견적 자동화 시스템</div>
-    <button id="btnGoogle" onclick="signInWithGoogle()" style="
-      display:flex;align-items:center;justify-content:center;gap:10px;
-      width:100%;padding:13px 20px;
-      background:#fff;color:#111;border:none;cursor:pointer;
-      font-family:'SUIT','Pretendard',sans-serif;
-      font-size:13px;font-weight:600;letter-spacing:0.02em;
-      transition:background 0.15s;
-    ">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
-      Google 계정으로 계속하기
-    </button>
-    <div id="loginError" style="margin-top:14px;font-size:11px;color:#c0392b;display:none;"></div>
-  </div>
-
-  <!-- 인증코드 입력 화면 -->
-  <div id="screenCode" style="display:none;text-align:center;padding:32px 24px;max-width:360px;width:100%;">
-    <div id="userAvatar" style="width:44px;height:44px;border-radius:50%;background:#222;margin:0 auto 12px;overflow:hidden;">
-      <img id="userAvatarImg" style="width:100%;height:100%;object-fit:cover;" src="" alt="">
-    </div>
-    <div id="userNameDisp" style="font-size:13px;font-weight:600;color:#e8e8e6;margin-bottom:4px;"></div>
-    <div id="userEmailDisp" style="font-size:11px;color:#555;margin-bottom:32px;"></div>
-
-    <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#555;margin-bottom:10px;text-align:left;">초기 인증 코드</div>
-    <input id="codeInput" type="text" placeholder="코드를 입력하세요" maxlength="12"
-      style="
-        width:100%;padding:12px 14px;
-        background:#1c1c1c;border:1px solid #2e2e2e;color:#e8e8e6;
-        font-family:'SUIT','Pretendard',sans-serif;font-size:16px;
-        letter-spacing:0.1em;text-align:center;outline:none;
-        text-transform:uppercase;
-      "
-      oninput="this.value=this.value.toUpperCase()"
-      onkeydown="if(event.key==='Enter')verifyCode()"
-    >
-    <button onclick="verifyCode()" style="
-      width:100%;margin-top:10px;padding:13px;
-      background:#e8e8e6;color:#111;border:none;cursor:pointer;
-      font-family:'SUIT','Pretendard',sans-serif;
-      font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;
-      transition:background 0.15s;
-    ">확인</button>
-    <div id="codeError" style="margin-top:12px;font-size:11px;color:#c0392b;display:none;"></div>
-    <div style="margin-top:24px;">
-      <button onclick="signOut()" style="
-        background:none;border:none;cursor:pointer;
-        font-size:10px;color:#444;letter-spacing:0.06em;
-        font-family:'SUIT','Pretendard',sans-serif;
-      ">다른 계정으로 로그인</button>
-    </div>
-  </div>
-
-  <!-- 로딩 -->
-  <div id="screenLoading" style="display:none;text-align:center;">
-    <div style="width:28px;height:28px;border:2px solid #333;border-top-color:#888;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto;"></div>
-  </div>
-</div>
-
-<style>
-@keyframes spin { to { transform: rotate(360deg); } }
-#btnGoogle:hover { background: #f0f0f0; }
-</style>
-
-<!-- Firebase SDK -->
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut as fbSignOut }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, Timestamp }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
-const firebaseConfig = {
-  apiKey:            "AIzaSyDN3An4trTUpxodt7ILpUGTRpdnuegKTF4",
-  authDomain:        "gyeonjeokhanjang.firebaseapp.com",
-  projectId:         "gyeonjeokhanjang",
-  storageBucket:     "gyeonjeokhanjang.firebasestorage.app",
-  messagingSenderId: "640421546393",
-  appId:             "1:640421546393:web:ecb45dc941a077d44ceb08"
-};
-
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
-const provider = new GoogleAuthProvider();
-
-// ── 화면 전환 헬퍼 ──
-function show(id) {
-  ['screenLogin','screenCode','screenLoading'].forEach(s => {
-    const el = document.getElementById(s);
-    el.style.display = 'none';
-  });
-  const target = document.getElementById(id);
-  target.style.display = id === 'screenLoading' ? 'flex' : 'block';
-}
-
-function hideOverlay() {
-  document.getElementById('authOverlay').style.display = 'none';
-}
-
-// ── 이미 승인된 유저인지 확인 ──
-async function checkApproved(uid) {
-  const ref  = doc(db, 'approvedUsers', uid);
-  const snap = await getDoc(ref);
-  return snap.exists() && snap.data().approved === true;
-}
-
-// ── 인앱 브라우저 감지 & 배너 표시 ──
-function detectInAppBrowser() {
-  const ua  = navigator.userAgent;
-  const ual = ua.toLowerCase();
-
-  const isKakao     = /kakaotalk/i.test(ua);
-  const isInstagram = /instagram/i.test(ua);
-  const isNaver     = /naver/i.test(ua);
-  const isLine      = /line\//i.test(ua);
-  const isFacebook  = /fbav|fban|fb_iab/i.test(ua);
-  const isTwitter   = /twitter/i.test(ua);
-  const isTelegram  = /telegram/i.test(ua);
-  const isAndroidWV = ual.includes('wv') && ual.includes('android');
-  const isIOS       = /iphone|ipad|ipod/i.test(ua);
-  const isAndroid   = /android/i.test(ua);
-
-  const inApp = isKakao || isInstagram || isNaver || isLine
-             || isFacebook || isTwitter || isTelegram || isAndroidWV;
-
-  if (!inApp) return false;
-
-  // 배너 내용 세팅
-  let appName = '현재 앱';
-  if (isKakao)     appName = '카카오톡';
-  if (isInstagram) appName = '인스타그램';
-  if (isNaver)     appName = '네이버';
-  if (isLine)      appName = 'LINE';
-  if (isFacebook)  appName = '페이스북';
-  if (isTwitter)   appName = '트위터(X)';
-  if (isTelegram)  appName = '텔레그램';
-
-  document.getElementById('inappTitle').textContent =
-    `${appName} 내 브라우저에서는 로그인이 제한됩니다`;
-
-  if (isIOS) {
-    document.getElementById('inappDesc').textContent =
-      'Google 로그인을 사용하려면 Safari에서 열어야 합니다.';
-    document.getElementById('inappManual').innerHTML =
-      '버튼이 안 된다면:<br>주소창 오른쪽 <b style="color:#888">···</b> → <b style="color:#888">Safari로 열기</b>';
-  } else if (isAndroid) {
-    document.getElementById('inappDesc').textContent =
-      'Google 로그인을 사용하려면 Chrome에서 열어야 합니다.';
-    document.getElementById('inappManual').innerHTML =
-      '버튼이 안 된다면:<br>주소창 오른쪽 <b style="color:#888">⋮</b> → <b style="color:#888">Chrome으로 열기</b> 또는 <b style="color:#888">기본 브라우저로 열기</b>';
-  } else {
-    document.getElementById('inappDesc').textContent =
-      '외부 브라우저(Chrome, Safari)에서 열면 정상 이용 가능합니다.';
-  }
-
-  document.getElementById('inappBanner').style.display = 'block';
-  return true;
-}
-
-function isInAppBrowser() {
-  const ua  = navigator.userAgent;
-  const ual = ua.toLowerCase();
-  return /kakaotalk|instagram|naver|line\//i.test(ua)
-      || /fbav|fban|fb_iab|twitter|telegram/i.test(ua)
-      || (ual.includes('wv') && ual.includes('android'));
-}
-
-// 현재 URL을 외부 브라우저로 열기
-window.openInExternalBrowser = function() {
-  const url = location.href;
-  const ua  = navigator.userAgent;
-  const isIOS = /iphone|ipad|ipod/i.test(ua);
-
-  if (isIOS) {
-    // iOS: x-safari 스킴으로 시도
-    location.href = 'x-safari-' + url;
-    // 폴백: intent URL (일부 앱에서 동작)
-    setTimeout(() => { location.href = url; }, 300);
-  } else {
-    // Android: intent 스킴으로 Chrome 강제 실행
-    const intent = 'intent://' + url.replace(/^https?:\/\//, '')
-      + '#Intent;scheme=https;package=com.android.chrome;end';
-    location.href = intent;
-    // 폴백
-    setTimeout(() => { location.href = url; }, 500);
-  }
-};
-
-// ── 인증 상태 감지 (redirect 결과도 여기서 처리) ──
-onAuthStateChanged(auth, async user => {
-  if (!user) {
-    // redirect 로그인 후 돌아왔는지 확인
-    try {
-      const result = await getRedirectResult(auth);
-      if (result?.user) return; // onAuthStateChanged가 다시 실행됨
-    } catch(e) { console.error(e); }
-    show('screenLogin');
-    detectInAppBrowser(); // 인앱 브라우저면 배너 표시
-    return;
-  }
-
-  show('screenLoading');
-
-  const approved = await checkApproved(user.uid);
-  if (approved) { hideOverlay(); return; }
-
-  document.getElementById('userNameDisp').textContent  = user.displayName || '';
-  document.getElementById('userEmailDisp').textContent = user.email || '';
-  if (user.photoURL) document.getElementById('userAvatarImg').src = user.photoURL;
-  show('screenCode');
-});
-
-window.signInWithGoogle = async () => {
-  const errEl = document.getElementById('loginError');
-  errEl.style.display = 'none';
-  try {
-    if (isInAppBrowser()) {
-      // 카카오톡 등 인앱 브라우저 → redirect 방식
-      await signInWithRedirect(auth, provider);
-    } else {
-      // 일반 브라우저 → popup 방식
-      await signInWithPopup(auth, provider);
-    }
-  } catch(e) {
-    console.error(e);
-    if (e.code === 'auth/popup-blocked') {
-      // 팝업 차단 시 자동으로 redirect로 폴백
-      await signInWithRedirect(auth, provider);
-    } else {
-      errEl.textContent = '로그인 중 오류가 발생했습니다. (' + e.code + ')';
-      errEl.style.display = 'block';
-    }
-  }
-};
-
-window.signOut = async () => {
-  await fbSignOut(auth);
-  show('screenLogin');
-};
-
-window.verifyCode = async () => {
-  const inputCode = document.getElementById('codeInput').value.trim().toUpperCase();
-  const errEl     = document.getElementById('codeError');
-  errEl.style.display = 'none';
-
-  if (!inputCode) {
-    errEl.textContent = '코드를 입력해 주세요.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const user = auth.currentUser;
-  if (!user) return;
-
-  try {
-    const codesRef = collection(db, 'inviteCodes');
-    const q        = query(codesRef, where('code', '==', inputCode), where('used', '==', false));
-    const snap     = await getDocs(q);
-
-    if (snap.empty) {
-      errEl.textContent = '유효하지 않거나 이미 사용된 코드입니다.';
-      errEl.style.display = 'block';
-      return;
-    }
-
-    const codeDoc = snap.docs[0];
-    const data    = codeDoc.data();
-
-    if (data.expiresAt && data.expiresAt.toDate() < new Date()) {
-      errEl.textContent = '만료된 코드입니다.';
-      errEl.style.display = 'block';
-      return;
-    }
-
-    // 코드 사용 처리
-    await updateDoc(doc(db, 'inviteCodes', codeDoc.id), {
-      used: true, usedBy: user.uid, usedAt: Timestamp.now()
-    });
-
-    // 유저 승인 등록 (동적 import 제거 — 상단에서 이미 import)
-    await setDoc(doc(db, 'approvedUsers', user.uid), {
-      approved: true,
-      email: user.email,
-      displayName: user.displayName,
-      approvedAt: Timestamp.now(),
-      usedCode: inputCode
-    });
-
-    hideOverlay();
-
-  } catch(e) {
-    console.error(e);
-    errEl.textContent = '오류가 발생했습니다. (' + e.code + ')';
-    errEl.style.display = 'block';
-  }
-};
-</script>
 
 </body>
 </html>
